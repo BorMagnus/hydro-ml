@@ -1,0 +1,161 @@
+%--------------------------------------
+% Master's Thesis Title Page 
+% LaTeX Template
+% Version 1.0 (23/05/14)
+% Thanks to Magnus Marthinsen, this thesis and template is made available for Master studentes at HVL Joint SE program (01.03.2021)
+%---------------------------------------
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+\documentclass[a4paper]{report} 
+\usepackage{graphicx} % Required for box manipulation
+\usepackage{helvet}
+\usepackage{subfig}
+\usepackage[utf8]{inputenc}
+%\usepackage{natbib}
+\usepackage[USenglish]{babel}
+\usepackage[useregional]{datetime2}
+\usepackage{pgfgantt}
+\usepackage{listings}
+\usepackage{wrapfig}
+\usepackage{setspace}
+\usepackage{parskip} % Used to create spaces between paragraphs
+\usepackage{dirtytalk} % quotes by talk
+\usepackage[hidelinks]{hyperref}
+\usepackage[acronym, toc]{glossaries}  % Used to add a wordlist/glossaries
+\usepackage{mathtools}
+\usepackage{amsfonts} 
+\usepackage{color, colortbl}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{csquotes}
+
+%BIB by Adrian
+\usepackage[backend=biber,style=numeric, urldate=long]{biblatex}
+% See the references.bib file. Most Bibtex bibliographies in Computer Science can be found from dblp.org 
+\addbibresource{references.bib}
+
+
+
+% Glossary/wordlist
+\makeglossaries
+\input{glossaries.tex}
+
+\begin{document}
+
+%
+% COLORS USED THROUGH THE REPORT
+%
+\definecolor{kb_red}{RGB}{96,2,4}
+\definecolor{light_gray}{RGB}{160,160,160}
+\definecolor{med_gray}{RGB}{96,94,94}
+\definecolor{black}{RGB}{0,0,0}
+\definecolor{white}{RGB}{155,155,155}
+\definecolor{light_green}{RGB}{208,240,192}
+\definecolor{light_red}{RGB}{255,204,203}
+
+% CODE STYLE
+\definecolor{javared}{rgb}{0.6,0,0} % for strings
+\definecolor{javagreen}{rgb}{0.25,0.5,0.35} % comments
+\definecolor{javapurple}{rgb}{0.5,0,0.35} % keywords
+\definecolor{javadocblue}{rgb}{0.25,0.35,0.75} % javadoc
+ 
+\makeatletter
+\lst@Key{matchrangestart}{f}{\lstKV@SetIf{#1}\lst@ifmatchrangestart}
+\def\lst@SkipToFirst{%
+    \lst@ifmatchrangestart\c@lstnumber=\numexpr-1+\lst@firstline\fi
+    \ifnum \lst@lineno<\lst@firstline
+        \def\lst@next{\lst@BeginDropInput\lst@Pmode
+        \lst@Let{13}\lst@MSkipToFirst
+        \lst@Let{10}\lst@MSkipToFirst}%
+        \expandafter\lst@next
+    \else
+        \expandafter\lst@BOLGobble
+    \fi}
+\makeatother
+ 
+\lstset{language=Java,
+basicstyle=\footnotesize,
+keywordstyle=\color{javapurple}\bfseries,
+stringstyle=\color{javared},
+commentstyle=\color{javagreen},
+morecomment=[s][\color{javadocblue}]{/**}{*/},
+numbers=left,
+captionpos=b,
+frame=single,
+breakatwhitespace=false,
+breaklines=true,
+numberstyle=\tiny\color{black},
+stepnumber=1,
+numbersep=10pt,
+tabsize=2,
+showspaces=false,
+showstringspaces=false,
+matchrangestart=t}
+
+%Title page
+\input{title_page.tex}
+\titlePage
+\pagebreak
+
+\section*{Abstract}
+\acrlong{MDSE} is a ...
+
+\section*{Acknowledgements}
+First and foremost, I would like to thank ...
+\pagebreak
+\tableofcontents
+\listoffigures
+\listoftables
+
+\printglossary[nonumberlist]
+\printglossary[type=\acronymtype, nonumberlist]
+
+
+\chapter{Introduction}
+\acrfull{SE} is an engineering discipline that focuses on the development of high-quality software systems \cite{TsuiFrankF2011Eose}. ...
+
+\section{Problem Description}
+\section{Methodology}
+\section{Contribution}
+\section{Outline}
+
+\chapter{Background} \label{Background}
+In this chapter, we will present some of the knowledge that our research is built upon. This theory is important to know in order understand the following chapters.
+...
+
+$<$ \textit{The following sections and subsections are just examples of how to structure the background} $>$
+\section{Model Driven Software Engineering}
+\subsection{Modeling languages}\label{ModelingLanguages}
+
+\section{Machine Learning} \label{Machine Learning}
+\subsection{Supervised Learning}
+\subsection{Unsupervised Learning}
+\subsection{Reinforcement Learning}
+\subsubsection{Q-learning} \label{Q-learning}
+
+
+
+\chapter{Design and Implementation} \label{Design and Implementation}
+In this chapter the implementation of the algorithm will be explained. ...
+\section{Demonstration} \label{demonstration}
+\section{Development method}
+\section{Code structure} \label{CodeStructure}
+
+
+\chapter{Use cases} \label{Use Cases}
+\chapter{Analysis and Assessment}\label{Analysis and Assessment}
+\chapter{Discussion} \label{Discussion}
+\chapter{Related Work} \label{Related Work}
+\chapter{Conclusion} \label{Conclusion}
+\chapter{Further Work} \label{Further Work}
+
+\appendix
+\input{appendix/Code}
+
+%\bibliographystyle{splncs04}
+%\bibliography{references}
+\printbibliography
+
+\end{document}
