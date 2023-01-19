@@ -1,3 +1,6 @@
+import torch.nn as nn
+import torch
+
 class TA_LSTM(nn.Module):
 
     def __init__(self,
