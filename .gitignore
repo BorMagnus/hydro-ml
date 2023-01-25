@@ -299,3 +299,5 @@ TSWLatexianTemp*
 
 # Data files
 data/
+# Testing files
+model_testing/
