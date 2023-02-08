@@ -301,3 +301,5 @@ TSWLatexianTemp*
 data/
 # Testing files
 model_testing/
+
+weights_dir/
