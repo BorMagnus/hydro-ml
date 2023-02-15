@@ -1,5 +1,0 @@
-{
-    "python.analysis.extraPaths": [
-        "./my_env/Lib/site-packages"
-    ]
-}
