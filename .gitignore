@@ -303,3 +303,13 @@ data/
 model_testing/
 
 weights_dir/
+
+mlruns/
+
+model_weights/
+
+test.ipynb
+test2.ipynb
+
+models/__pycache__
+config/__pycache__

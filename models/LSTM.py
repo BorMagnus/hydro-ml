@@ -1,33 +1,43 @@
+import torch.nn as nn
+import torch
+
 class LSTM(nn.Module):
-    def __init__(self, in_dim, hidden_dim, out_dim, sequence_length):
-        super(LSTM, self).__init__()
+    
+    def __init__(self,
+                 in_dim,
+                 sequence_length,
+                 lstm_in_dim,
+                 lstm_hidden_dim,
+                 out_dim,
+                 mode):
+
+        super(LSTM,self).__init__()
         self.in_dim = in_dim
-        self.hidden_dim = hidden_dim
-        self.out_dim = out_dim
         self.sequence_length = sequence_length
         
-        # lstm1, lstm2, linear are all layers in the network
-        self.lstm1 = nn.LSTMCell(in_dim, hidden_dim)
-        self.lstm2 = nn.LSTMCell(hidden_dim, hidden_dim)
-        
-        self.linear = nn.Linear(hidden_dim, hidden_dim)
-        self.linear_out = nn.Linear(hidden_dim*sequence_length, out_dim)
+        self.lstm_in_dim = lstm_in_dim
+        self.lstm_hidden_dim = lstm_hidden_dim
+        self.out_dim = out_dim
+        self.mode = mode
 
+        self.batch_norm = nn.BatchNorm1d(in_dim)
+        self.layer_in = nn.Linear(in_dim, in_dim)
+        self.lstmcell = nn.LSTMCell(lstm_in_dim, lstm_hidden_dim)
+        self.layer_out = nn.Linear(lstm_hidden_dim, out_dim,bias=False)
         
-    def forward(self, y):
-        outputs = []
-        h_t = torch.zeros(y.size(0), self.hidden_dim, dtype=torch.float32)
-        c_t = torch.zeros(y.size(0), self.hidden_dim, dtype=torch.float32)
-        h_t2 = torch.zeros(y.size(0), self.hidden_dim, dtype=torch.float32)
-        c_t2 = torch.zeros(y.size(0), self.hidden_dim, dtype=torch.float32)
+        self.sigmoid = nn.Sigmoid()
+        self.relu = nn.ReLU()
+
+    def forward (self,input):
+        out = self.batch_norm(input)
+        out = self.layer_in(out)
         
-        for time_step in y.split(1, dim=1):
-            # N, 1
-            h_t, c_t = self.lstm1(time_step, (h_t, c_t)) # initial hidden and cell states
-            h_t2, c_t2 = self.lstm2(h_t, (h_t2, c_t2)) # new hidden and cell states
-            output = self.linear(h_t2) # output from the last FC layer
-            outputs.append(output)
-        # transform list to tensor    
-        outputs = torch.cat(outputs, dim=1)
-        out = self.linear_out(outputs)
+        h_t_1 = torch.zeros(out.size(0), self.lstm_hidden_dim).to(self.mode["device"])
+        c_t_1 = torch.zeros(out.size(0), self.lstm_hidden_dim).to(self.mode["device"])
+        
+        for i in range(self.sequence_length):
+            x_t = out[:,i*self.lstm_in_dim:(i+1)*(self.lstm_in_dim)]
+            h_t,c_t = self.lstmcell(x_t,(h_t_1,c_t_1)) 
+            h_t_1,c_t_1 = h_t,c_t
+        out = self.layer_out(h_t)
         return out
