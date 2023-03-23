@@ -309,5 +309,5 @@ test2.ipynb
 
 models/__pycache__
 config/__pycache__
-
+config/load_datacopy.py
 .vscode

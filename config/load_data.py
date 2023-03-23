@@ -29,7 +29,6 @@ class load_data:
         
     def get_target_data(self, target_variable, path):
         """
-
         """
         self.target_variable = target_variable
         if os.path.isfile(path):
@@ -45,12 +44,10 @@ class load_data:
     def create_lagged_matrix(self, window_size, vars_to_lag=None, pca=False, mi=False): #TODO: Fix decimal (five values in dataframe four in X, y)
         """
         Create a lagged matrix from time series data.
-
         Args:
         - window_size: number of lags to include.
         - vars_to_lag: list of variable names to include in the lagged matrix.
         If None, all variables except the target variable are included.
-
         Returns:
         - X: tensor array of shape (n_samples, window_size, ).
         - y: tensor array of shape (n_samples,).
@@ -160,7 +157,7 @@ class load_data:
         return dataloader
 
     
-    def split_data(self, X, y, train_size=0.6, val_size=0.2, test_size=0.2):
+    def split_data(self, X, y, train_size=0.7, val_size=0.2, test_size=0.1):
         """
         Splits the dataset into training, validation, and test sets.
         
@@ -176,17 +173,17 @@ class load_data:
             training, validation, and test sets.
         """
         # Check that the sizes add up to 1.0
-        if train_size + val_size + test_size != 1.0:
+        if round(train_size + val_size + test_size, 2) != 1.0:
             raise ValueError("Train, validation, and test sizes must add up to 1.0")
 
         # Split the dataset into training and test sets
-        X_train_test, X_test, y_train_test, y_test = train_test_split(X, y, test_size=test_size, shuffle=True)
+        X_train, X_val_test, y_train, y_val_test = train_test_split(X, y, train_size=train_size, shuffle=True)
 
-        # Compute the validation size relative to the remaining data after the test split
-        val_size_ratio = val_size / (train_size + val_size)
+        # Compute the validation size relative to the remaining data after the train split
+        val_size_ratio = test_size / (val_size + test_size)
         
         # Split the remaining data into training and validation sets
-        X_train, X_val, y_train, y_val = train_test_split(X_train_test, y_train_test,
+        X_val, X_test, y_val, y_test = train_test_split(X_val_test, y_val_test,
                                                         test_size=val_size_ratio,
                                                         shuffle=False)
 
@@ -205,4 +202,4 @@ class load_data:
             elif file_ext == ".xlsx":
                 data = pd.read_excel(file_path)
 
-        return data 
+        return data
