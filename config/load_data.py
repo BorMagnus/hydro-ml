@@ -41,7 +41,7 @@ class load_data:
             return pd.read_csv(path, index_col='Datetime')
                     
 
-    def create_lagged_matrix(self, window_size, vars_to_lag=None, pca=False, mi=False): #TODO: Fix decimal (five values in dataframe four in X, y)
+    def create_lagged_matrix(self, window_size, vars_to_lag=None): #TODO: Fix decimal (five values in dataframe four in X, y)
         """
         Create a lagged matrix from time series data.
         Args:
@@ -91,36 +91,8 @@ class load_data:
         X = lagged_df.drop(columns=[f'{self.target_variable}'], axis=1)
         y = lagged_df[f'{self.target_variable}'] # TODO: methods such as Granger causality or structural equation modeling to determine whether the lagged values of "Nedbør Nilsebu" and "Q_Lyngsaana" are predictive of future values of "Q_Kalltveit".
 
-        if pca:
-            # define standard scaler
-            scaler = StandardScaler()
-            # Standardize the data
-            X_scaled = scaler.fit_transform(X)
-
-            # Apply PCA that will choose the minimum number of components necessary to explain 90% of the variance in the data
-            pca = PCA(n_components=0.9)
-            pca_features = pca.fit_transform(X_scaled)
-            X = pca_features
-        
-        if mi: #TODO: Takes no account to structure of the features #TODO: If the relationship between "Nedbør Nilsebu", "Q_Lyngsaana", and "Q_Kalltveit" is non-linear, then linear models such as PCA and mutual information may not be sufficient to capture this relationship.
-            # Convert X to a pandas DataFrame
-            X = pd.DataFrame(X)
-            y = pd.DataFrame(y)
-
-            discrete_features = X.dtypes == int
-            y = y.values.ravel() # convert y to 1-dimensional array
-            mi_scores = mutual_info_regression(X, y, discrete_features=discrete_features)
-            mi_scores = pd.Series(mi_scores, name="MI Scores", index=X.columns)
-            mi_scores = mi_scores.sort_values(ascending=False)
-            selected_dimension = mi_scores[mi_scores.values >= 1]
-            X = X[selected_dimension.index].to_numpy()
-
         X = torch.tensor(np.array(X)).float()
         y = torch.tensor(np.array(y)).float()
-        if not vars_to_lag:
-            # reshape X into a 3D tensor with dimensions 
-            # (number of sequences, sequence length, 1) if univariate
-            X = X.unsqueeze(-1)
 
         return X, y
 
@@ -149,6 +121,8 @@ class load_data:
             X_3d = X_3d.astype(np.float32)
             X = X_3d.copy()
             X = torch.tensor(X)
+        else:
+            X = X.unsqueeze(-1)
 
         # create a PyTorch dataset and dataloader
         dataset = TensorDataset(X, y)
