@@ -69,8 +69,8 @@ class load_data:
             if vars_to_lag:
                 lagged_df = data[[self.target_variable] + vars_to_lag].copy()
                 # create a lagged matrix of target and variables
-                for i in range(1, window_size+1):
-                    for var in vars_to_lag:
+                for var in [self.target_variable] + vars_to_lag:
+                    for i in range(1, window_size+1):
                         lagged_df.loc[:, f'{var}_{i}'] = lagged_df[var].shift(i)
             else:
                 lagged_df = data[[self.target_variable]].copy()
@@ -86,14 +86,16 @@ class load_data:
 
             # save lagged matrix
             lagged_df.to_csv(path, index=True)
-        
+
         # separate the target variable from the input variables
-        X = lagged_df.drop(columns=[f'{self.target_variable}'], axis=1)
-        y = lagged_df[f'{self.target_variable}'] # TODO: methods such as Granger causality or structural equation modeling to determine whether the lagged values of "Nedbør Nilsebu" and "Q_Lyngsaana" are predictive of future values of "Q_Kalltveit".
+        if vars_to_lag:
+            X = lagged_df.drop(columns=[self.target_variable] + vars_to_lag, axis=1)
+        else:
+            X = lagged_df.drop(columns=[self.target_variable], axis=1)
+        y = lagged_df[f'{self.target_variable}']
 
         X = torch.tensor(np.array(X)).float()
         y = torch.tensor(np.array(y)).float()
-
         return X, y
 
     
@@ -111,18 +113,11 @@ class load_data:
         Returns:
             A PyTorch DataLoader object.
         """
-        if X.shape[-1] != 1:
-            # reshape X_train into a 3D tensor with dimensions (number of sequences, sequence length, number of features)
-            num_sequences = X.shape[0]
-            num_features = X.shape[1]
-            X_3d = np.zeros((num_sequences, sequence_length, num_features))
-            for i in range(sequence_length, num_sequences):
-                X_3d[i] = X[i-sequence_length:i, :]
-            X_3d = X_3d.astype(np.float32)
-            X = X_3d.copy()
-            X = torch.tensor(X)
-        else:
-            X = X.unsqueeze(-1)
+        
+        # reshape X_train into a 3D tensor with dimensions (number of values, sequence length, number of features)
+        num_values = X.shape[0]
+        num_features = int(X.shape[1]/sequence_length)
+        X = X.reshape(num_values, sequence_length, num_features)
 
         # create a PyTorch dataset and dataloader
         dataset = TensorDataset(X, y)

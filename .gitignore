@@ -302,12 +302,9 @@ data/
 # Testing files
 model_testing/
 
-model_weights/
-
-test.ipynb
-test2.ipynb
-
 models/__pycache__
 config/__pycache__
+div/
+my_env
 config/load_datacopy.py
 .vscode
