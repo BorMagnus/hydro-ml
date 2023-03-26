@@ -16,9 +16,8 @@ class load_data:
         self.target_variable = target_variable
 
 
-    def get_raw_data(self):
+    def get_raw_data(self): # TODO: Needs to change the variable names
         # Construct file path using os.path.join
-
         raw_data_path = os.path.join(self.data_dir, "raw_data", "cascaded_use_case_data.xlsx")
         
         if os.path.isfile(raw_data_path):
