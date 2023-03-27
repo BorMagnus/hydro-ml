@@ -67,8 +67,8 @@ class SpatialAttention(nn.Module):
         self.v = nn.Linear(hidden_size, 1, bias=False)
     
     def forward(self, hidden_states):
-        # hidden_states shape: (batch_size, seq_len, hidden_size)
-        energy = torch.tanh(self.attn(hidden_states))
+        # hidden_states shape: (seq_len, batch_size, hidden_size)
+        energy = torch.sigmoid(self.attn(hidden_states))
         attention_weights = torch.softmax(self.v(energy), dim=1)
         context_vector = torch.sum(attention_weights * hidden_states, dim=1)
         return context_vector

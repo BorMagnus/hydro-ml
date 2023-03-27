@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Code/hydro-ml/mlruns/8/76ea512d68934a02b01a7df8a6a7021f/artifacts
+end_time: 1679938798879
+entry_point_name: ''
+experiment_id: '8'
+lifecycle_stage: active
+run_id: 76ea512d68934a02b01a7df8a6a7021f
+run_name: train_model_9f615_00013
+run_uuid: 76ea512d68934a02b01a7df8a6a7021f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1679938581787
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,1 @@
+Conducted an experiment to compare the performance of LSTM and LSTMSpatialTemporalAttention, using different types of input data. The input data included univariate data (none), as well as multivariate data consisting of Precipitation and Air Temperature from Fister and Nilsebu. In addition, a combination of these data sources was used to create a spatio-temporal dataset. 

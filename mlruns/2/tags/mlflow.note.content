@@ -1,0 +1,1 @@
+Examined various types of data to determine their impact on the validation loss. Inclusion of simulated HBV data and discharge data had a significant impact on the validation loss.

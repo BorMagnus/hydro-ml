@@ -21,7 +21,53 @@ class load_data:
         raw_data_path = os.path.join(self.data_dir, "raw_data", "cascaded_use_case_data.xlsx")
         
         if os.path.isfile(raw_data_path):
-            return self.load_data_from_file(raw_data_path)
+            data = self.load_data_from_file(raw_data_path)
+            # Rename columns to be more user-friendly
+            data = data.rename(columns={
+                #TODO: Remove and rename before
+                'Vindhastighet Nilsebu': 'Wind_Speed_Nilsebu',
+                'Lufttemp. Nilsebu': 'Air_Temperature_Nilsebu',
+                'Vindretning Nilsebu': 'Wind_Direction_Nilsebu',
+                'RelHum Nilsebu': 'Relative_Humidity_Nilsebu',
+                'Vannstand Lyngsana': 'Water_Level_Lyngsaana',
+                'Vanntemp. Hiafossen': 'Water_Temperature_Hiafossen',
+                'Vannstand Hiafossen': 'Water_Level_Hiafossen',
+                'Lufttemp Fister': 'Air_Temperature_Fister',
+                'Nedbør Fister': 'Precipitation_Fister',
+                'Q_Lyngsvatn_overlop': 'Flow_Lyngsvatn_Overflow',
+                'Q_tapping': 'Flow_Tapping',
+                'Vannstand Kalltveit': 'Water_Level_Kalltveit',
+                'Q_Kalltveit': 'Flow_Kalltveit',
+                'Vanntemp. Kalltveit kum': 'Water_Temperature_Kalltveit_Kum',
+                'Nedbør Nilsebu': 'Precipitation_Nilsebu',
+                'Vanntemp. Hiavatn': 'Water_Temperature_Hiavatn',
+                'Vannstand Hiavatn': 'Water_Level_Hiavatn',
+                'Vanntemp. Musdalsvatn': 'Water_Temperature_Musdalsvatn',
+                'Vannstand Musdalsvatn': 'Water_Level_Musdalsvatn',
+                'Vanntemp. Musdalsvatn nedstrøms': 'Water_Temperature_Musdalsvatn_Downstream',
+                'Vannstand Musdalsvatn nedstrøms': 'Water_Level_Musdalsvatn_Downstream',
+                'Vanntemp. Viglesdalsvatn': 'Water_Temperature_Viglesdalsvatn',
+                'Vannstand Viglesdalsvatn': 'Water_Level_Viglesdalsvatn',
+                'Q_HBV': 'Flow_HBV',
+                'PRECIP_HBV': 'Precipitation_HBV',
+                'TEMP_HBV': 'Temperature_HBV',
+                'SNOW_MELT_HBV': 'SNOW_MELT_HBV',
+                'SNOW_SWE_HBV': 'Snow_Water_Equivalent_HBV',
+                'Evap_HBV': 'Evaporation_HBV',
+                'SOIL_WAT_HBV': 'Soil_Water_Storage_HBV',
+                'GR_WAT_HBV': 'Groundwater_Storage_HBV',
+                'Q_Kalltveit_uten_tapping': 'Flow_Without_Tapping_Kalltveit',
+                'Q_HBV_mean': 'Mean_Flow_HBV',
+                'Q_Lyngsaana': 'Flow_Lyngsaana',
+                'Vanntemp. Lyngsaana': 'Water_Temperature_Lyngsaana',
+                'Vanntemp. Kalltveit elv': 'Water_Temperature_Kalltveit_River',
+                'Vannstand Lyngsåna': 'Water_Level_Lyngsaana',
+                'Vanntemp. Lyngsåna': 'Water_Temperature_Lyngsaana'
+            })
+            
+
+
+            return data
         else:
             raise FileNotFoundError("Raw data file does not exist at path: {}".format(raw_data_path))
 
@@ -52,15 +98,22 @@ class load_data:
         - y: tensor array of shape (n_samples,).
         """
 
+        # Create variable name abbreviations
+        var_abbrevs = {var: var[0] for var in vars_to_lag} if vars_to_lag else {}
+
+        # Create abbreviated file name
+        var_str = "_".join([var_abbrevs[var] for var in vars_to_lag]) if vars_to_lag else ""
+        file_name = f"{window_size}_lag_{var_str}.csv"
+
         # Construct file path using os.path.join
         path = os.path.join(
             self.data_dir, 
             "clean_data", 
             "multivariate", 
-            self.target_variable, 
-            f"{window_size}_lag_" + ("_".join(vars_to_lag) if vars_to_lag else "") + ".csv")
+            self.target_variable.replace(" ", "_"), 
+            file_name)
             
-        if os.path.isfile(path): 
+        if os.path.isfile(path):
             lagged_df = self.load_data_from_file(path)
         else:
             data = self.get_raw_data()
