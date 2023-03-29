@@ -12,7 +12,7 @@ from sklearn.feature_selection import mutual_info_regression
 class load_data:
     def __init__(self, data_dir, target_variable):
         # Getting the directory of the config file and giving the data path
-        self.data_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + data_dir # TODO: Use cwd instead (cleaner)
+        self.data_dir = data_dir + '/data'
         self.target_variable = target_variable
 
 
