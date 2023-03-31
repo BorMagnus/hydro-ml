@@ -67,11 +67,11 @@ class SpatialAttention(nn.Module):
         self.v = nn.Linear(hidden_size, 1, bias=False)
     
     def forward(self, hidden_states):
-        # hidden_states shape: (seq_len, batch_size, hidden_size)
+        # hidden_states shape: (batch_size, seq_len, hidden_size)
         energy = torch.sigmoid(self.attn(hidden_states))
-        attention_weights = torch.softmax(self.v(energy), dim=1)
-        context_vector = torch.sum(attention_weights * hidden_states, dim=1)
-        return context_vector
+        attention_weights = torch.softmax(self.v(energy), dim=2)
+        context_vector = torch.sum(attention_weights * hidden_states, dim=2, keepdim=True)
+        return context_vector * hidden_states
         
 
 class LSTMTemporalAttention(nn.Module):
@@ -148,19 +148,20 @@ class LSTMSpatialTemporalAttention(nn.Module):
         self.linear_out = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
+        # Input shape (batch_size, seq_len, in_dim)
         # apply the linear input layer
         x = self.linear_in(x)
 
         # apply batch normalization
         x = self.batch_norm(x.transpose(1,2)).transpose(1,2)
-
+        
         # apply the spatial attention layer
         spatial_out = self.spatial_attention(x)
-
+        
         # apply the LSTM layer
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        lstm_out, _ = self.lstm(spatial_out.unsqueeze(1), (h0, c0))
+        lstm_out, _ = self.lstm(spatial_out, (h0, c0))
 
         # apply temporal attention
         attention_out = self.temporal_attention(lstm_out.transpose(0, 1))

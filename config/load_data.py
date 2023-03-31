@@ -177,7 +177,7 @@ class load_data:
 
         return dataloader
 
-    
+
     def split_data(self, X, y, train_size=0.7, val_size=0.2, test_size=0.1):
         """
         Splits the dataset into training, validation, and test sets.
@@ -198,14 +198,13 @@ class load_data:
             raise ValueError("Train, validation, and test sizes must add up to 1.0")
 
         # Split the dataset into training and test sets
-        X_train, X_val_test, y_train, y_val_test = train_test_split(X, y, train_size=train_size, shuffle=True)
+        X_train_val, X_test, y_train_val, y_test = train_test_split(X, y, 
+                                                                    test_size=test_size, 
+                                                                    shuffle=False)
 
-        # Compute the validation size relative to the remaining data after the train split
-        val_size_ratio = test_size / (val_size + test_size)
-        
         # Split the remaining data into training and validation sets
-        X_val, X_test, y_val, y_test = train_test_split(X_val_test, y_val_test,
-                                                        test_size=val_size_ratio,
+        X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val,
+                                                        test_size=val_size,
                                                         shuffle=False)
 
         return X_train, y_train, X_val, y_val, X_test, y_test
