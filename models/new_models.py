@@ -177,7 +177,7 @@ class LSTMSpatialTemporalAttention(nn.Module):
 
 class LSTMSpatialAttention(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size):
-        super(LSTMSpatialTemporalAttention, self).__init__()
+        super(LSTMSpatialAttention, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -211,7 +211,7 @@ class LSTMSpatialAttention(nn.Module):
         # apply the LSTM layer
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        lstm_out, _ = self.lstm(spatial_out.unsqueeze(1), (h0, c0))
+        lstm_out, _ = self.lstm(spatial_out, (h0, c0))
 
         # apply the linear output layer
         out = self.linear_out(lstm_out.transpose(0, 1))
