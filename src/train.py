@@ -12,6 +12,7 @@ def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, checkpoint
             keys = ["train", "val"]
         else:
             keys = ["train", "val", "test"]
+        epoch_losses = {"train": 0.0, "val": 0.0, "test": 0.0}
         for key in keys:
             dataset_size = 0
             dataset_loss = 0.0
@@ -34,21 +35,13 @@ def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, checkpoint
                 dataset_loss += y_batch.shape[0] * batch_loss.item()
 
             dataset_loss /= dataset_size
+            epoch_losses[key] = dataset_loss
+            losses[key].append(dataset_loss)
 
-            # Report results to Ray Tune
-            if key == "train":
-                tune.report(train_loss=dataset_loss)
-                losses[key].append(dataset_loss)
-            elif key == "val":
-                # Update learning rate
-                tune.report(val_loss=dataset_loss)
-                losses[key].append(dataset_loss)
-            else:
-                tune.report(test_loss=dataset_loss)
-                losses[key].append(dataset_loss)
+        # Report results to Ray Tune after processing all keys
+        tune.report(train_loss=epoch_losses["train"], val_loss=epoch_losses["val"], test_loss=epoch_losses["test"])
 
         with tune.checkpoint_dir(epoch) as checkpoint_dir:
             path = os.path.join(checkpoint_dir, "checkpoint")
             torch.save((net.state_dict(), optimizer.state_dict()), path)
-
     return net
