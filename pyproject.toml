@@ -1,0 +1,65 @@
+[tool.poetry]
+name = "hydro-ml"
+version = "0.1.0"
+description = "Master project"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numpy = "^1.24.2"
+pandas = "^1.5.3"
+ray = {extras = ["tune"], version = "^2.3.1"}
+tqdm = "^4.65.0"
+streamlit = "^1.20.0"
+matplotlib = "^3.7.1"
+scikit-learn = "^1.2.2"
+plotly = "^5.14.0"
+
+# Linux, Python 3.10, Pytorch 2.0, CPU
+#torch = { url = "https://download.pytorch.org/whl/cpu/torch-2.0.0%2Bcpu-cp310-cp310-linux_x86_64.whl" }
+# Windows, Python 3.10, Pytorch 2.0, CUDA 118
+torch = { url = "https://download.pytorch.org/whl/cu118/torch-2.0.0%2Bcu118-cp310-cp310-win_amd64.whl" }
+# Windows, Python 3.10, Pytorch 2.0, CPU
+#torch = { url = "https://download.pytorch.org/whl/cpu/torch-2.0.0%2Bcpu-cp310-cp310-win_amd64.whl" }
+openpyxl = "^3.1.2"
+missingno = "^0.5.2"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.22.0"
+
+[tool.poetry.group.lint.dependencies]
+isort = "^5.12.0"
+black = {extras = ["jupyter"], version = "^23.3.0"}
+flake8 = "^6.0.0"
+mypy = "^1.1.1"
+flake8-pyproject = "^1.2.3"
+
+[tool.isort]
+profile = "black"
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = ["E203"]
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_any_unimported = true
+disallow_any_expr = false
+disallow_any_decorated = false
+disallow_any_explicit = true
+disallow_any_generics = false
+disallow_subclassing_any = true
+python_version = "3.10"
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_return_any = false
+warn_unreachable = true
+pretty = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
