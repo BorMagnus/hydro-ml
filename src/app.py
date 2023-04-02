@@ -5,31 +5,24 @@ import plotly.express as px
 
 from data import Data
 
-def stats(dataframe):
+
+def describe_dataframe(dataframe):
     st.header('Data Statistics')
     st.write(dataframe.describe())
-
-def plot(dataframe):
-    x_axis_val = 'Datetime'
-    y_axis_val = st.selectbox('Select Y-Axis Value', options=dataframe.columns)
-
-    plot = px.line(dataframe, x=x_axis_val, y=y_axis_val)
-    st.plotly_chart(plot)
 
 
 st.title('Inflow forecasting')
 st.text('This is an app to create inflow forecast')
+st.text('Info page!')
 
-st.sidebar.title('Navigation')
 
-options = st.sidebar.radio('Pages', options=['Home', 'Data Statistics', 'Data Header', 'Plot'])
-
-uploaded_file = st.sidebar.file_uploader("Choose a file")
+uploaded_file = st.sidebar.file_uploader("Select file") #TODO Do not need file_name for application?
 if uploaded_file:
+
     dataframe = pd.read_csv(uploaded_file)
     st.session_state['df'] = dataframe
+    st.session_state['file_name'] = uploaded_file.name
+
+    describe_dataframe(dataframe)
+    #data = Data(data_file, datetime_variable)
     
-if options == 'Data Statistics':
-    stats(dataframe)
-elif options == 'Plot':
-    plot(dataframe)

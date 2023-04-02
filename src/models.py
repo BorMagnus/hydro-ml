@@ -178,8 +178,8 @@ class LSTMSpatialTemporalAttention(nn.Module):
 
         return out
     
-
-class LSTMSpatialAttention(nn.Module):
+ 
+class LSTMSpatialAttention(nn.Module): # TODO: UserWarning: Using a target size (torch.Size([512])) that is different to the input size (torch.Size([25, 512]))
     def __init__(self, input_size, hidden_size, num_layers, output_size):
         super(LSTMSpatialAttention, self).__init__()
         self.input_size = input_size
