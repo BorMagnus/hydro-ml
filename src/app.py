@@ -1,9 +1,16 @@
 import streamlit as st
 import pandas as pd
 
-import plotly.express as px
+import os
+import sys
 
-from data import Data
+# Get the absolute path of the parent directory (Hydro-ML)
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# Add the root directory to sys.path
+sys.path.append(root_dir)
+
+
+import plotly.express as px
 
 
 def describe_dataframe(dataframe):

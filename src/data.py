@@ -45,7 +45,7 @@ class Data:
         return data
     
     # TODO: Add check to see if columns_to_transformation is in data.
-    def data_transformation(self, sequence_length, target_variable, columns_to_transformation=None):
+    def data_transformation(self, sequence_length, target_variable, columns_to_transformation=[]):
 
         text = str(columns_to_transformation) if columns_to_transformation else "Univariate"
         # Create a hash from the decomposition parameters to ensure a unique file name
@@ -145,3 +145,30 @@ class Data:
                                                         test_size=val_size,
                                                         shuffle=False)
         return X_train, y_train, X_val, y_val, X_test, y_test
+    
+
+    def prepare_data(self, target_variable, sequence_length, batch_size, variables):
+        X, y = self.data_transformation(
+            sequence_length=sequence_length, 
+            target_variable=target_variable,
+            columns_to_transformation=variables
+        )
+
+        #TODO: Posiblility to set train, val, test size
+        train_size = 0.7
+        val_size = 0.2
+        test_size = 0.1
+
+        # Split the data
+        X_train, y_train, X_val, y_val, X_test, y_test = self.split_data(X, y, train_size=train_size, val_size=val_size, test_size=test_size)
+        train_dataloader = self.create_dataloader(X_train, y_train, sequence_length, batch_size=batch_size, shuffle=True)
+        val_dataloader = self.create_dataloader(X_val, y_val, sequence_length, batch_size=batch_size, shuffle=False)
+        test_dataloader = self.create_dataloader(X_test, y_test, sequence_length, batch_size=batch_size, shuffle=False)
+        
+        data_loader = {
+            "train": train_dataloader,
+            "val": val_dataloader,
+            "test": test_dataloader,
+        }
+        
+        return data_loader

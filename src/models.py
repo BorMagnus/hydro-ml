@@ -3,10 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def test() -> str: #TODO: Remove!
-    return "test test test"
-
-
 class TemporalAttention(nn.Module):
     def __init__(self, hidden_size):
         super(TemporalAttention, self).__init__()

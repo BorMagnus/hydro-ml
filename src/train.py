@@ -6,8 +6,8 @@ import os
 import torch.optim as optim
 import torch.nn as nn
 
-from src import models as m
-from src import data as d
+from .models import FCN, FCNTemporalAttention, LSTM, LSTMSpatialAttention, LSTMTemporalAttention, LSTMSpatialTemporalAttention
+from .data import Data
 
 
 def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, checkpoint_dir, use_amp=False):
@@ -53,97 +53,55 @@ def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, checkpoint
     return net
 
 
-def train_model(config, checkpoint_dir=None):
+def train_setup(model, learning_rate, weight_decay):
     use_GPU = torch.cuda.is_available()
     if use_GPU:
         mode = {"name": "cuda", "device": torch.device("cuda")}
     else:
         mode = {"name": "cpu", "device": torch.device("cpu")}
 
-    # Define hyperparameters
-    train_size = 0.7
-    val_size = 0.2
-    test_size = 0.1
+    model.to(mode["device"])
+    loss_function = nn.MSELoss().to(mode["device"])
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-    sequence_length = config['sequence_length']
-    batch_size = config['batch_size']
-    num_epochs = config['num_epochs']
-    lr = config['learning_rate']
-    weight_decay = config['weigth_decay']
+    return model, loss_function, optimizer, mode
 
+
+def train_model(config, checkpoint_dir=None): #TODO: DeprecationWarning: `checkpoint_dir` in `func(config, checkpoint_dir)` is being deprecated. To save and load checkpoint in trainable functions, please use the `ray.air.session` API
+
+    #TODO: Change to save and load file if file exists in data folder. The app uploaded and does not download the file to data folder. Is is needed to download?
     # Set data file
     data_file = config['data_file']
     datetime_variable = config['datetime']
 
-    data = d.Data(data_file, datetime_variable)
+    # Load/create data
+    data = Data(data_file, datetime_variable)
+    data_loaders = data.prepare_data(**config['data'])
 
-    # Select variables to use
-    vars = config['variables']
-    target_variable = config['target_variable']
-    X, y = data.data_transformation(sequence_length=sequence_length, target_variable=target_variable, columns_to_transformation=vars)
-
-    # Split the data
-    X_train, y_train, X_val, y_val, X_test, y_test = data.split_data(X, y, train_size=train_size, val_size=val_size, test_size=test_size)
-    train_dataloader = data.create_dataloader(X_train, y_train, sequence_length, batch_size=batch_size, shuffle=True)
-    val_dataloader = data.create_dataloader(X_val, y_val, sequence_length, batch_size=batch_size, shuffle=False)
-    test_dataloader = data.create_dataloader(X_test, y_test, sequence_length, batch_size=batch_size, shuffle=False)
-
-    # Model inputs
-    if vars:
-        input_size = len(vars) + 1
-    else:
-        input_size = 1
-    hidden_size = config['hidden_size']
-    num_layers = config['num_layers']
-    output_size = 1
-
-    if config['arch'] == "FCN":
-        net = m.FCN(input_size,
-                    hidden_size,
-                    num_layers,
-                    output_size,
-                    )
-    elif config['arch'] ==  "FCNTemporalAttention":
-        net = m.FCNTemporalAttention(input_size,
-                    hidden_size,
-                    num_layers,
-                    output_size,
-                    )
-    elif config['arch'] == "LSTM":
-        net = m.LSTM(input_size,
-                    hidden_size,
-                    num_layers,
-                    output_size,
-                    )
-    elif config['arch'] == "LSTMTemporalAttention":
-        net = m.LSTMTemporalAttention(input_size,
-                    hidden_size,
-                    num_layers,
-                    output_size,
-                    )
-    elif config['arch'] == "LSTMSpatialAttention":
-        net = m.LSTMSpatialAttention(input_size,
-                    hidden_size,
-                    num_layers,
-                    output_size,
-                    )
-    elif config['arch'] == "LSTMSpatialTemporalAttention":
-        net = m.LSTMSpatialTemporalAttention(input_size,
-                    hidden_size,
-                    num_layers,
-                    output_size,
-                    )
-
-    data_loader = {
-    "train": train_dataloader,
-    "val": val_dataloader,
-    "test": test_dataloader,
+    # Map model names to classes
+    model_classes = {
+        "FCN": FCN,
+        "FCNTemporalAttention": FCNTemporalAttention,
+        "LSTMTemporalAttention": LSTMTemporalAttention,
+        "LSTM": LSTM,
+        "LSTMSpatialAttention": LSTMSpatialAttention,
+        "LSTMSpatialTemporalAttention": LSTMSpatialTemporalAttention
     }
-    
-    net.to(mode["device"])
 
-    loss_function = nn.MSELoss().to(mode["device"])
-    optimizer = optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+    # Get the model class based on the configuration
+    model_name = config["model"]
+    if model_name not in model_classes:
+        raise ValueError(f"Invalid model name {model_name}. Possible model names are {list(model_classes.keys())}.")
+    model_class = model_classes[model_name]
+
+    # Set the input_size based on variables
+    variables = config['data']['variables']
+    config['model_arch']['input_size'] = len(variables) + 1 if variables else 1
+
+    # Prepare training
+    net = model_class(**config['model_arch'])
+    num_epochs = config['num_epochs']
+    net, loss_function, optimizer, mode = train_setup(net, **config['training'])
 
     if checkpoint_dir:
         model_state, optimizer_state = torch.load(
@@ -151,4 +109,4 @@ def train_model(config, checkpoint_dir=None):
         net.load_state_dict(model_state)
         optimizer.load_state_dict(optimizer_state)
 
-    fit(net, loss_function, optimizer, data_loader, num_epochs, mode, checkpoint_dir, use_amp=True)
+    fit(net, loss_function, optimizer, data_loaders, num_epochs, mode, checkpoint_dir, use_amp=True)
