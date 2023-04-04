@@ -31,5 +31,3 @@ if uploaded_file:
     st.session_state['file_name'] = uploaded_file.name
 
     describe_dataframe(dataframe)
-    #data = Data(data_file, datetime_variable)
-    

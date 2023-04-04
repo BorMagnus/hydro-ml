@@ -12,4 +12,4 @@ st.plotly_chart(plot)
 results = st.session_state['analysis']
 st.header('Training results')
 df = results.results_df
-st.write(df[['config/arch', 'train_loss', 'val_loss', 'test_loss', 'config/variables']].sort_values('test_loss'))
+st.write(df[['config/model', 'train_loss', 'val_loss', 'test_loss', 'time_total_s', 'config/data/variables']].sort_values('test_loss'))
