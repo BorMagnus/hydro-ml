@@ -7,9 +7,8 @@ import os
 import torch.optim as optim
 import torch.nn as nn
 
-
-from .models import FCN, FCNTemporalAttention, LSTM, LSTMSpatialAttention, LSTMTemporalAttention, LSTMSpatialTemporalAttention
-from .data import Data
+from models import FCN, FCNTemporalAttention, LSTM, LSTMSpatialAttention, LSTMTemporalAttention, LSTMSpatialTemporalAttention
+from data import Data
 
 
 def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, use_amp=False):
@@ -73,6 +72,30 @@ def train_setup(model, learning_rate, weight_decay):
     return model, loss_function, optimizer, mode
 
 
+def create_model(config):
+    # Map model names to classes
+    model_classes = {
+        "FCN": FCN,
+        "FCNTemporalAttention": FCNTemporalAttention,
+        "LSTMTemporalAttention": LSTMTemporalAttention,
+        "LSTM": LSTM,
+        "LSTMSpatialAttention": LSTMSpatialAttention,
+        "LSTMSpatialTemporalAttention": LSTMSpatialTemporalAttention
+    }
+
+    # Set the input_size based on variables
+    variables = config['data']['variables']
+    config['model_arch']['input_size'] = len(variables) + 1 if variables else 1
+
+    # Get the model class based on the configuration
+    model_name = config["model"]
+    if model_name not in model_classes:
+        raise ValueError(f"Invalid model name {model_name}. Possible model names are {list(model_classes.keys())}.")
+    model_class = model_classes[model_name]
+    model = model_class(**config['model_arch'])
+
+    return model, config
+
 def train_model(config, data_dir=None): #TODO: DeprecationWarning: `checkpoint_dir` in `func(config, checkpoint_dir)` is being deprecated. To save and load checkpoint in trainable functions, please use the `ray.air.session` API
 
     #TODO: Change to save and load file if file exists in data folder. The app uploaded and does not download the file to data folder. Is is needed to download?
@@ -84,28 +107,12 @@ def train_model(config, data_dir=None): #TODO: DeprecationWarning: `checkpoint_d
     data = Data(data_file, datetime_variable)
     data_loaders = data.prepare_data(**config['data'])
 
-    # Map model names to classes
-    model_classes = {
-        "FCN": FCN,
-        "FCNTemporalAttention": FCNTemporalAttention,
-        "LSTMTemporalAttention": LSTMTemporalAttention,
-        "LSTM": LSTM,
-        "LSTMSpatialAttention": LSTMSpatialAttention,
-        "LSTMSpatialTemporalAttention": LSTMSpatialTemporalAttention
-    }
-
-    # Get the model class based on the configuration
-    model_name = config["model"]
-    if model_name not in model_classes:
-        raise ValueError(f"Invalid model name {model_name}. Possible model names are {list(model_classes.keys())}.")
-    model_class = model_classes[model_name]
-
     # Set the input_size based on variables
     variables = config['data']['variables']
     config['model_arch']['input_size'] = len(variables) + 1 if variables else 1
 
     # Prepare training
-    net = model_class(**config['model_arch'])
+    net, config = create_model(config)
     num_epochs = config['num_epochs']
     net, loss_function, optimizer, mode = train_setup(net, **config['training'])
 

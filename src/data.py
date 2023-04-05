@@ -30,7 +30,7 @@ class Data:
             return data
         else:
             raise FileNotFoundError("File does not exist at path: {}".format(data_path))
-        
+
     
     def load_data_from_file(self, data_path):
         """Loads a pandas DataFrame from a CSV file."""
@@ -64,8 +64,8 @@ class Data:
                 # create a lagged matrix of target and variables
                 for var in [target_variable] + columns_to_transformation:
                     for i in range(1, sequence_length+1):
-                        lagged_df.loc[:, f'{var}_{i}'] = lagged_df[var].shift(i)
-            else:
+                        lagged_df.loc[:, f'{var}_{i}'] = lagged_df[var].shift(i)    #TODO: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+            else:                                                                   #(train_model pid=10880)   lagged_df.loc[:, f'{var}_{i}'] = lagged_df[var].shift(i)
                 lagged_df = data[[target_variable]].copy()
                 # create a lagged matrix of target
                 for i in range(1, sequence_length+1):
