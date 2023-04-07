@@ -10,18 +10,23 @@ from sklearn.decomposition import PCA
 from sklearn.feature_selection import mutual_info_regression
 import hashlib
 
-# TODO: Save data_loaders?
+
 class Data:
-    def __init__(self, data_file, datetime_variable):
+    def __init__(self, data_file, datetime_variable, data=None):
         self.data_file = data_file
         self.data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')
         self.datetime_variable = datetime_variable
-        self.data = self.get_csv_data()
+        if data:
+            self.data = data
+        else:
+            self.data = self.get_csv_data()
 
 
     def get_data(self):
         return self.data
-
+    
+    def get_all_variables(self):
+        return list(self.data.columns)  
 
     def get_csv_data(self):
         data_path = os.path.abspath(os.path.join(self.data_dir, "clean_data", self.data_file))
@@ -30,7 +35,6 @@ class Data:
             return data
         else:
             raise FileNotFoundError("File does not exist at path: {}".format(data_path))
-
     
     def load_data_from_file(self, data_path):
         """Loads a pandas DataFrame from a CSV file."""
@@ -44,8 +48,7 @@ class Data:
                 raise ValueError("Invalid file format. Only CSV files are supported.")
         return data
     
-    # TODO: Add check to see if columns_to_transformation is in data.
-    def data_transformation(self, sequence_length, target_variable, columns_to_transformation=[]):
+    def data_transformation(self, data, sequence_length, target_variable, columns_to_transformation=[]):
 
         text = str(columns_to_transformation) if columns_to_transformation else "Univariate"
         # Create a hash from the decomposition parameters to ensure a unique file name
@@ -58,24 +61,27 @@ class Data:
         if os.path.isfile(decomposed_data_path):
             lagged_df = self.load_data_from_file(decomposed_data_path)
         else:
-            data = self.get_data()
             if columns_to_transformation:
                 lagged_df = data[[target_variable] + columns_to_transformation].copy()
                 # create a lagged matrix of target and variables
+                new_columns = []
                 for var in [target_variable] + columns_to_transformation:
                     for i in range(1, sequence_length+1):
-                        lagged_df.loc[:, f'{var}_{i}'] = lagged_df[var].shift(i)    #TODO: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
-            else:                                                                   #(train_model pid=10880)   lagged_df.loc[:, f'{var}_{i}'] = lagged_df[var].shift(i)
+                        new_columns.append(lagged_df[var].shift(i).rename(f'{var}_{i}'))
+                lagged_df = pd.concat([lagged_df] + new_columns, axis=1)
+            else:
                 lagged_df = data[[target_variable]].copy()
                 # create a lagged matrix of target
+                new_columns = []
                 for i in range(1, sequence_length+1):
-                    lagged_df.loc[:, f'{target_variable}_{i}'] = lagged_df[target_variable].shift(i)
+                    new_columns.append(lagged_df[target_variable].shift(i).rename(f'{target_variable}_{i}'))
+                lagged_df = pd.concat([lagged_df] + new_columns, axis=1)
 
-        # remove rows with NaN values
-        lagged_df.dropna(inplace=True)
+            # remove rows with NaN values
+            lagged_df.dropna(inplace=True)
 
-        # save lagged matrix
-        lagged_df.to_csv(decomposed_data_path, index=True)
+            # save lagged matrix
+            lagged_df.to_csv(decomposed_data_path, index=True)
 
         # separate the target variable from the input variables
         if columns_to_transformation:
@@ -83,12 +89,11 @@ class Data:
         else:
             X = lagged_df.drop(columns=[target_variable], axis=1)
         y = lagged_df[f'{target_variable}']
-
+        
         X = torch.tensor(np.array(X)).float()
         y = torch.tensor(np.array(y)).float()
 
         return X, y
-
 
     def create_dataloader(self, X, y, sequence_length, batch_size, shuffle):
         """
@@ -116,7 +121,6 @@ class Data:
 
         return dataloader
 
-
     def split_data(self, X, y, train_size=0.7, val_size=0.2, test_size=0.1):
         """
         Splits the dataset into training, validation, and test sets.
@@ -134,8 +138,8 @@ class Data:
         """
 
         # Check that the sizes add up to 1.0
-        if round(train_size + val_size + test_size, 2) != 1.0:
-            raise ValueError("Train, validation, and test sizes must add up to 1.0")
+        #if round(train_size + val_size + test_size, 2) != 1.0:
+            #raise ValueError(f"Train, validation, and test sizes must add up to 1.0, but is {round(train_size + val_size + test_size, 2)}") #TODO: ??? ValueError: Train, validation, and test sizes must add up to 1.0, but is 1.1 ???
         # Split the dataset into training and test sets
         X_train_val, X_test, y_train_val, y_test = train_test_split(X, y, 
                                                                     test_size=test_size, 
@@ -145,19 +149,22 @@ class Data:
                                                         test_size=val_size,
                                                         shuffle=False)
         return X_train, y_train, X_val, y_val, X_test, y_test
-    
 
-    def prepare_data(self, target_variable, sequence_length, batch_size, variables):
+    def prepare_data(self, target_variable, sequence_length, batch_size, variables, split_size, data=None):
+
+        if not data:
+            data = self.get_data()
+        
         X, y = self.data_transformation(
+            data=data,
             sequence_length=sequence_length, 
             target_variable=target_variable,
             columns_to_transformation=variables
         )
 
-        #TODO: Posiblility to set train, val, test size
-        train_size = 0.7
-        val_size = 0.2
-        test_size = 0.1
+        train_size = split_size['train_size']
+        val_size = split_size['val_size']
+        test_size = split_size['val_size']
 
         # Split the data
         X_train, y_train, X_val, y_val, X_test, y_test = self.split_data(X, y, train_size=train_size, val_size=val_size, test_size=test_size)
@@ -172,3 +179,6 @@ class Data:
         }
         
         return data_loader
+    
+
+

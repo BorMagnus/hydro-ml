@@ -6,12 +6,10 @@ import ray
 import streamlit as st
 from ray import tune
 
-from src.train import train_model
+from functools import partial
+from ray.tune.schedulers import ASHAScheduler
 
-# Get the absolute path of the grandparent directory (Hydro-ML)
-root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-# Add the root directory to sys.path
-sys.path.append(root_dir)
+from ..train import train_model
 
 
 dataframe = st.session_state['df']
@@ -103,7 +101,7 @@ def get_training_parameters_form():
         return st.session_state['training_parameters']
 
 
-def select_models() -> List[str]:
+def select_models() -> List[str]: # TODO: One must be selected!
     """Select models to use."""
     st.write('Select Models to use:')
     models = []
@@ -138,7 +136,7 @@ def create_config(datetime_variable, target_variable, models, training_parameter
 
         "model": tune.grid_search(models),
         "model_arch": {
-            "input_size": None,
+            "input_size": tune.sample_from(lambda spec: len(spec.config.data["variables"]) + 1),
             "hidden_size": training_parameters['hidden_size'],
             'num_layers': training_parameters['num_layers'],
             "output_size": 1
@@ -166,19 +164,27 @@ def train(config):
 
     init_ray()
 
+    scheduler_asha = ASHAScheduler(
+        max_t=30, #TODO: Set max_num_epochs
+        grace_period=10, #TODO: Set min_num_epochs
+        reduction_factor=2)
+
     reporter = tune.CLIReporter(
-        parameter_columns={
-            "weight_decay": "w_decay",
-            "learning_rate": "lr",
-            "num_epochs": "num_epochs"
-        },
         metric_columns=[
             "train_loss", "val_loss", "test_loss", "training_iteration"
         ])
-    exp_name = "inflow_forecasting"
+    
+    stop = {
+        "training_iteration": 30, #TODO: Set max_num_epochs
+    }
+    
+    exp_name = "app-test"
     local_dir="../ray_results/"
+    if not os.path.exists(local_dir):
+        os.makedirs(local_dir)
+    
     analysis = tune.run(
-        train_model, # TODO: partial(train_cifar, data_dir=data_dir),
+        partial(train_model, st.session_state['df']),
         resources_per_trial={"cpu": 12, "gpu": 1},
         config=config,
         num_samples=1, #TODO: Set n_samples
@@ -188,6 +194,7 @@ def train(config):
         local_dir=local_dir,
         metric='val_loss',
         mode='min',
+        stop=stop
     )
 
     st.session_state['analysis'] = analysis

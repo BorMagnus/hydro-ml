@@ -22,12 +22,13 @@ st.title('Inflow forecasting')
 st.text('This is an app to create inflow forecast')
 st.text('Info page!')
 
-
-uploaded_file = st.sidebar.file_uploader("Select file") #TODO Do not need file_name for application?
+uploaded_file = st.sidebar.file_uploader("Choose a CSV file to upload", type=['csv'])
 if uploaded_file:
 
     dataframe = pd.read_csv(uploaded_file)
-    st.session_state['df'] = dataframe
-    st.session_state['file_name'] = uploaded_file.name
+    if 'df' not in st.session_state:
+        st.session_state['df'] = dataframe
+    if 'file_name' not in st.session_state:
+        st.session_state['file_name'] = uploaded_file.name
 
     describe_dataframe(dataframe)

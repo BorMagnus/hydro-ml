@@ -52,7 +52,7 @@ def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, use_amp=Fa
         torch.save(
             (net.state_dict(), optimizer.state_dict()), "my_model/checkpoint.pt")
         checkpoint = Checkpoint.from_directory("my_model")
-        metrics = {"train_loss":epoch_losses['train'], "val_loss":epoch_losses['val'], "test_loss":epoch_losses['train']}
+        metrics = {"train_loss":epoch_losses['train'], "val_loss":epoch_losses['val'], "test_loss":epoch_losses['test']}
         session.report(metrics, checkpoint=checkpoint)
     
     print("Finished Training")
@@ -83,10 +83,6 @@ def create_model(config):
         "LSTMSpatialTemporalAttention": LSTMSpatialTemporalAttention
     }
 
-    # Set the input_size based on variables
-    variables = config['data']['variables']
-    config['model_arch']['input_size'] = len(variables) + 1 if variables else 1
-
     # Get the model class based on the configuration
     model_name = config["model"]
     if model_name not in model_classes:
@@ -94,25 +90,23 @@ def create_model(config):
     model_class = model_classes[model_name]
     model = model_class(**config['model_arch'])
 
-    return model, config
+    return model
 
-def train_model(config, data_dir=None): #TODO: DeprecationWarning: `checkpoint_dir` in `func(config, checkpoint_dir)` is being deprecated. To save and load checkpoint in trainable functions, please use the `ray.air.session` API
+def train_model(config, data=None):
 
-    #TODO: Change to save and load file if file exists in data folder. The app uploaded and does not download the file to data folder. Is is needed to download?
     # Set data file
     data_file = config['data_file']
     datetime_variable = config['datetime']
 
     # Load/create data
-    data = Data(data_file, datetime_variable)
-    data_loaders = data.prepare_data(**config['data'])
-
-    # Set the input_size based on variables
-    variables = config['data']['variables']
-    config['model_arch']['input_size'] = len(variables) + 1 if variables else 1
+    if data:
+        data = Data(data_file, datetime_variable, data)
+    else:
+        data = Data(data_file, datetime_variable)
+    data_loaders = data.prepare_data(**config['data']) 
 
     # Prepare training
-    net, config = create_model(config)
+    net = create_model(config)
     num_epochs = config['num_epochs']
     net, loss_function, optimizer, mode = train_setup(net, **config['training'])
 

@@ -1,20 +1,20 @@
+from functools import partial
 from ray import tune
 from ray.tune.schedulers import ASHAScheduler, PopulationBasedTraining
 
 import os
-import sys
-from itertools import chain, combinations
 import random
 
 import plotly.graph_objects as go
 import numpy as np
 
 from train import train_model
+from data import Data
 
 
-def main(exp_name, n_samples, max_num_epochs, min_num_epochs, local_dir="ray_results"):
+def main(exp_name, file_name, n_samples, max_num_epochs, min_num_epochs, local_dir="ray_results"):
+    
     target_variable = 'Flow_Kalltveit'
-    file_name = "cleaned_data_1.csv"
     datetime_variable = "Datetime"
 
     models = [
@@ -22,30 +22,17 @@ def main(exp_name, n_samples, max_num_epochs, min_num_epochs, local_dir="ray_res
             ] # Can be: "FCN", "FCNTemporalAttention", "LSTMTemporalAttention", "LSTM", "LSTMSpatialAttention", "LSTMSpatialTemporalAttention"
 
     def random_combinations(variables):
-        num_combinations = 10
-        min_variables = 1
+        num_combinations = 5
+        min_variables = 0
         max_variables = len(variables)
         return [random.sample(variables, random.randint(min_variables, max_variables)) for _ in range(num_combinations)]
+    
+    d = Data(file_name, datetime_variable)
+    variable_list = d.get_all_variables()
+    variable_list.remove(target_variable)
 
-    variable_list =[ #TODO: get columns from file.
-                "Wind_Speed_Nilsebu",
-                "Air_Temperature_Nilsebu",
-                "Wind_Direction_Nilsebu",
-                "Relative_Humidity_Nilsebu",
-                "Air_Temperature_Fister",
-                "Precipitation_Fister",
-                "Flow_Lyngsvatn_Overflow",
-                "Flow_Tapping",
-                "Water_Level_Kalltveit",
-                "Water_Temperature_Kalltveit_Kum",
-                "Precipitation_Nilsebu",
-                "Flow_HBV",
-                "Precipitation_HBV",
-                "Temperature_HBV",
-                "Flow_Without_Tapping_Kalltveit",
-                "Flow_Lyngsaana",
-                "Water_Temperature_Lyngsaana"
-                ]
+    all_variables_combinations = random_combinations(variable_list)
+
     config = {
         "data_file": file_name,
         "datetime":  datetime_variable,
@@ -54,12 +41,17 @@ def main(exp_name, n_samples, max_num_epochs, min_num_epochs, local_dir="ray_res
             "target_variable": target_variable,
             "sequence_length": tune.choice([25]),
             "batch_size": tune.choice([256, 512]),
-            "variables": tune.grid_search([]+random_combinations(variable_list))
+            "variables": tune.grid_search(all_variables_combinations),
+            "split_size": {
+                "train_size": 0.7,
+                "val_size": 0.2,
+                "test_size": 0.1
+            }
         },
 
         "model": tune.grid_search(models), 
         "model_arch": {
-            "input_size": None,
+            "input_size": tune.sample_from(lambda spec: len(spec.config.data["variables"]) + 1),
             "hidden_size": tune.choice([32, 64]),
             'num_layers': tune.choice([2, 3, 4]),
             "output_size": 1
@@ -102,11 +94,11 @@ def main(exp_name, n_samples, max_num_epochs, min_num_epochs, local_dir="ray_res
         os.makedirs(local_dir)
 
     results = tune.run(
-        train_model, # TODO: partial(train_cifar, data_dir=data_dir),
+        partial(train_model),
         resources_per_trial={"cpu": 12, "gpu": 1},
         config=config,
         num_samples=n_samples,
-        scheduler=scheduler_population,
+        scheduler=scheduler_asha,
         progress_reporter=reporter,
         name=exp_name,
         local_dir=local_dir,
@@ -116,4 +108,20 @@ def main(exp_name, n_samples, max_num_epochs, min_num_epochs, local_dir="ray_res
     )
 
 if __name__=="__main__":
-    main(exp_name="data_1-inflow_forecasting", n_samples=1, max_num_epochs=200, min_num_epochs=50)
+
+    data_dir = "./data"
+    clean_data_dir = os.path.abspath(os.path.join(data_dir, "clean_data"))
+
+    # Loop through each datafile in the data directory
+    for filename in os.listdir(clean_data_dir):
+        # Get the full path of the file
+        file_path = os.path.join(clean_data_dir, filename)
+
+        num = filename.split('_')[2].split('.')[0]
+
+        exp_name = "test"
+        experiment = f"data_{num}-{exp_name}"
+        
+        main(exp_name=experiment, file_name=filename, n_samples=1, max_num_epochs=200, min_num_epochs=50)
+
+        break
