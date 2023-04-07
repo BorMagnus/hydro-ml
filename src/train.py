@@ -7,13 +7,22 @@ import os
 import torch.optim as optim
 import torch.nn as nn
 
-from models import FCN, FCNTemporalAttention, LSTM, LSTMSpatialAttention, LSTMTemporalAttention, LSTMSpatialTemporalAttention
+from models import (
+    FCN,
+    FCNTemporalAttention,
+    LSTM,
+    LSTMSpatialAttention,
+    LSTMTemporalAttention,
+    LSTMSpatialTemporalAttention,
+)
 from data import Data
 
 
 def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, use_amp=False):
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp) # Mixed-precision support for compatible GPUs
-    losses = {"train": [], "val": [], "test": []} 
+    scaler = torch.cuda.amp.GradScaler(
+        enabled=use_amp
+    )  # Mixed-precision support for compatible GPUs
+    losses = {"train": [], "val": [], "test": []}
     for epoch in range(num_epochs):
         if epoch < num_epochs - 1:
             keys = ["train", "val"]
@@ -28,14 +37,18 @@ def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, use_amp=Fa
             else:
                 net.eval()
             for X_batch, y_batch in tqdm(data_loader[key]):
-                X_batch, y_batch = X_batch.to(mode["device"]), y_batch.to(mode["device"])
-                with torch.set_grad_enabled(mode=(key=="train")): # Autograd activated only during training
+                X_batch, y_batch = X_batch.to(mode["device"]), y_batch.to(
+                    mode["device"]
+                )
+                with torch.set_grad_enabled(
+                    mode=(key == "train")
+                ):  # Autograd activated only during training
                     with torch.cuda.amp.autocast(enabled=False):
                         batch_output = net(X_batch.float())
                         batch_loss = loss_function(batch_output, y_batch)
                     if key == "train":
-                        scaler.scale(batch_loss).backward() # type: ignore
-                        scaler.step(optimizer) 	
+                        scaler.scale(batch_loss).backward()  # type: ignore
+                        scaler.step(optimizer)
                         scaler.update()
                         optimizer.zero_grad()
                 dataset_size += y_batch.shape[0]
@@ -49,12 +62,15 @@ def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, use_amp=Fa
         # Ray Tune and can be accessed through `session.get_checkpoint()`
         # API in future iterations.
         os.makedirs("my_model", exist_ok=True)
-        torch.save(
-            (net.state_dict(), optimizer.state_dict()), "my_model/checkpoint.pt")
+        torch.save((net.state_dict(), optimizer.state_dict()), "my_model/checkpoint.pt")
         checkpoint = Checkpoint.from_directory("my_model")
-        metrics = {"train_loss":epoch_losses['train'], "val_loss":epoch_losses['val'], "test_loss":epoch_losses['test']}
+        metrics = {
+            "train_loss": epoch_losses["train"],
+            "val_loss": epoch_losses["val"],
+            "test_loss": epoch_losses["test"],
+        }
         session.report(metrics, checkpoint=checkpoint)
-    
+
     print("Finished Training")
 
 
@@ -67,7 +83,9 @@ def train_setup(model, learning_rate, weight_decay):
 
     model.to(mode["device"])
     loss_function = nn.MSELoss().to(mode["device"])
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = optim.Adam(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay
+    )
 
     return model, loss_function, optimizer, mode
 
@@ -80,41 +98,45 @@ def create_model(config):
         "LSTMTemporalAttention": LSTMTemporalAttention,
         "LSTM": LSTM,
         "LSTMSpatialAttention": LSTMSpatialAttention,
-        "LSTMSpatialTemporalAttention": LSTMSpatialTemporalAttention
+        "LSTMSpatialTemporalAttention": LSTMSpatialTemporalAttention,
     }
 
     # Get the model class based on the configuration
     model_name = config["model"]
     if model_name not in model_classes:
-        raise ValueError(f"Invalid model name {model_name}. Possible model names are {list(model_classes.keys())}.")
+        raise ValueError(
+            f"Invalid model name {model_name}. Possible model names are {list(model_classes.keys())}."
+        )
     model_class = model_classes[model_name]
-    model = model_class(**config['model_arch'])
+    model = model_class(**config["model_arch"])
 
     return model
 
-def train_model(config, data=None):
 
+def train_model(config, data=None):
     # Set data file
-    data_file = config['data_file']
-    datetime_variable = config['datetime']
+    data_file = config["data_file"]
+    datetime_variable = config["datetime"]
 
     # Load/create data
     if data:
         data = Data(data_file, datetime_variable, data)
     else:
         data = Data(data_file, datetime_variable)
-    data_loaders = data.prepare_data(**config['data']) 
+    data_loaders = data.prepare_data(**config["data"])
 
     # Prepare training
     net = create_model(config)
-    num_epochs = config['num_epochs']
-    net, loss_function, optimizer, mode = train_setup(net, **config['training'])
+    num_epochs = config["num_epochs"]
+    net, loss_function, optimizer, mode = train_setup(net, **config["training"])
 
     # To restore a checkpoint, use `session.get_checkpoint()`.
     loaded_checkpoint = session.get_checkpoint()
     if loaded_checkpoint:
         with loaded_checkpoint.as_directory() as loaded_checkpoint_dir:
-           model_state, optimizer_state = torch.load(os.path.join(loaded_checkpoint_dir, "checkpoint.pt"))
+            model_state, optimizer_state = torch.load(
+                os.path.join(loaded_checkpoint_dir, "checkpoint.pt")
+            )
         net.load_state_dict(model_state)
         optimizer.load_state_dict(optimizer_state)
 
