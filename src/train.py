@@ -1,21 +1,15 @@
+import os
+
 import torch
+import torch.nn as nn
+import torch.optim as optim
 from ray import tune
-from tqdm import tqdm
 from ray.air import session
 from ray.air.checkpoint import Checkpoint
-import os
-import torch.optim as optim
-import torch.nn as nn
+from tqdm import tqdm
 
-from models import (
-    FCN,
-    FCNTemporalAttention,
-    LSTM,
-    LSTMSpatialAttention,
-    LSTMTemporalAttention,
-    LSTMSpatialTemporalAttention,
-)
 from data import Data
+from models import *
 
 
 def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, use_amp=False):

@@ -1,14 +1,15 @@
+import hashlib
 import os
-from filelock import FileLock
-from sklearn.model_selection import train_test_split
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import torch
-from torch.utils.data import DataLoader, TensorDataset
-from sklearn.preprocessing import StandardScaler
+from filelock import FileLock
 from sklearn.decomposition import PCA
 from sklearn.feature_selection import mutual_info_regression
-import hashlib
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from torch.utils.data import DataLoader, TensorDataset
 
 
 class Data:
@@ -108,9 +109,6 @@ class Data:
             X = lagged_df.drop(columns=[target_variable], axis=1)
         y = lagged_df[f"{target_variable}"]
 
-        X = torch.tensor(np.array(X)).float()
-        y = torch.tensor(np.array(y)).float()
-
         return X, y
 
     def create_dataloader(self, X, y, sequence_length, batch_size, shuffle):
@@ -127,6 +125,9 @@ class Data:
         Returns:
             A PyTorch DataLoader object.
         """
+        datetime_index = X.index
+        X = torch.tensor(np.array(X)).float()
+        y = torch.tensor(np.array(y)).float()
 
         # reshape X_train into a 3D tensor with dimensions (number of values, sequence length, number of features)
         num_values = X.shape[0]
@@ -136,6 +137,8 @@ class Data:
         # create a PyTorch dataset and dataloader
         dataset = TensorDataset(X, y)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+        # Set the datetime_index attribute
+        dataloader.datetime_index = datetime_index
 
         return dataloader
 
@@ -168,6 +171,9 @@ class Data:
         )
         return X_train, y_train, X_val, y_val, X_test, y_test
 
+    def get_datetime_values(self, indices):
+        return self.data.index[indices]
+
     def prepare_data(
         self,
         target_variable,
@@ -195,6 +201,7 @@ class Data:
         X_train, y_train, X_val, y_val, X_test, y_test = self.split_data(
             X, y, train_size=train_size, val_size=val_size, test_size=test_size
         )
+
         train_dataloader = self.create_dataloader(
             X_train, y_train, sequence_length, batch_size=batch_size, shuffle=True
         )

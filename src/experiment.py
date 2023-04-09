@@ -1,15 +1,93 @@
-from functools import partial
-from ray import tune
-from ray.tune.schedulers import ASHAScheduler, PopulationBasedTraining
-
 import os
 import random
+from functools import partial
 
-import plotly.graph_objects as go
 import numpy as np
+from ray import tune
+from ray.tune.schedulers import ASHAScheduler, PopulationBasedTraining
+from ray.tune.search import ConcurrencyLimiter
+from ray.tune.schedulers import AsyncHyperBandScheduler
+from ray.tune.search.bayesopt import BayesOptSearch
+from ray.tune.search.ax import AxSearch
 
-from train import train_model
+
 from data import Data
+from train import train_model
+
+
+def get_variables_data(file_name):
+    
+    Univariate_variable = []
+
+    Nilsebu_variables = [
+        "Wind_Speed_Nilsebu",
+        "Air_Temperature_Nilsebu",
+        "Wind_Direction_Nilsebu",
+        "Relative_Humidity_Nilsebu",
+        "Precipitation_Nilsebu",
+    ]
+
+    Fister_variables = [
+        "Air_Temperature_Fister",
+        "Precipitation_Fister",
+    ]
+
+    Kalltveit_variables = [
+        "Water_Level_Kalltveit",
+        "Water_Temperature_Kalltveit_Kum",
+        "Flow_Without_Tapping_Kalltveit",
+    ]
+
+    Lyngsaana_variables = [
+        "Flow_Lyngsvatn_Overflow",
+        "Flow_Tapping",
+        "Flow_Lyngsaana",
+        "Water_Temperature_Lyngsaana",
+    ]
+
+    HBV_variables = [
+        "Flow_HBV",
+        "Precipitation_HBV",
+        "Temperature_HBV",
+    ]
+
+    meteorological_variables = [
+        "Wind_Speed_Nilsebu",
+        "Air_Temperature_Nilsebu",
+        "Wind_Direction_Nilsebu",
+        "Relative_Humidity_Nilsebu",
+        "Air_Temperature_Fister",
+        "Precipitation_Fister",
+        "Precipitation_Nilsebu",
+    ]
+
+    hydrological_variables = [
+        "Water_Level_Kalltveit",
+        "Water_Temperature_Kalltveit_Kum",
+        "Flow_Lyngsvatn_Overflow",
+        "Flow_Tapping",
+        "Flow_Without_Tapping_Kalltveit",
+        "Flow_Lyngsaana",
+        "Water_Temperature_Lyngsaana",
+    ]
+
+    all_variables_combinations = [
+        Univariate_variable,
+        Nilsebu_variables,
+        Fister_variables,
+        #Kalltveit_variables,
+        #Lyngsaana_variables,
+        Nilsebu_variables+Fister_variables,
+        #HBV_variables,
+        meteorological_variables,
+        hydrological_variables,
+        #meteorological_variables + HBV_variables,
+        #hydrological_variables + HBV_variables,
+        meteorological_variables + hydrological_variables,
+        #meteorological_variables + hydrological_variables + HBV_variables,
+    ]
+
+    return all_variables_combinations
 
 
 def main(
@@ -24,25 +102,10 @@ def main(
     datetime_variable = "Datetime"
 
     models = [
-        "LSTM",
-        "LSTMTemporalAttention",
         "LSTMSpatialTemporalAttention",
+        "LSTMTemporalAttention",
+        "LSTM",
     ]  # Can be: "FCN", "FCNTemporalAttention", "LSTMTemporalAttention", "LSTM", "LSTMSpatialAttention", "LSTMSpatialTemporalAttention"
-
-    def random_combinations(variables):
-        num_combinations = 5
-        min_variables = 0
-        max_variables = len(variables)
-        return [
-            random.sample(variables, random.randint(min_variables, max_variables))
-            for _ in range(num_combinations)
-        ]
-
-    d = Data(file_name, datetime_variable)
-    variable_list = d.get_all_variables()
-    variable_list.remove(target_variable)
-
-    all_variables_combinations = random_combinations(variable_list)
 
     config = {
         "data_file": file_name,
@@ -50,8 +113,8 @@ def main(
         "data": {
             "target_variable": target_variable,
             "sequence_length": tune.choice([25]),
-            "batch_size": tune.choice([256, 512]),
-            "variables": tune.grid_search(all_variables_combinations),
+            "batch_size": tune.choice([128, 256, 512]),
+            "variables": tune.grid_search(get_variables_data(file_name)),
             "split_size": {"train_size": 0.7, "val_size": 0.2, "test_size": 0.1},
         },
         "model": tune.grid_search(models),
@@ -59,15 +122,15 @@ def main(
             "input_size": tune.sample_from(
                 lambda spec: len(spec.config.data["variables"]) + 1
             ),
-            "hidden_size": tune.choice([32, 64]),
-            "num_layers": tune.choice([2, 3, 4]),
+            "hidden_size": tune.choice([32, 64, 128]),
+            "num_layers": tune.choice([1, 2, 3]),
             "output_size": 1,
         },
         "training": {
-            "learning_rate": tune.loguniform(1e-4, 1e-1),
-            "weight_decay": tune.choice([0, 0.001, 0.0001]),
+            "learning_rate": tune.loguniform(1e-5, 1e-1),
+            "weight_decay": tune.loguniform(1e-5, 1e-1),
         },
-        "num_epochs": tune.choice([max_num_epochs]),
+        "num_epochs": 200 #tune.randint(100, 500),
     }
 
     reporter = tune.CLIReporter(
@@ -76,17 +139,6 @@ def main(
 
     scheduler_asha = ASHAScheduler(
         max_t=max_num_epochs, grace_period=min_num_epochs, reduction_factor=2
-    )
-
-    scheduler_population = PopulationBasedTraining(
-        time_attr="training_iteration",
-        perturbation_interval=min_num_epochs,
-        hyperparam_mutations={
-            "training": {
-                "learning_rate": lambda: 10 ** np.random.uniform(-4, -1),
-                "weight_decay": [0, 0.001, 0.0001],
-            },
-        },
     )
 
     stop = {
@@ -101,13 +153,14 @@ def main(
         resources_per_trial={"cpu": 12, "gpu": 1},
         config=config,
         num_samples=n_samples,
-        scheduler=scheduler_asha,
+        #scheduler=scheduler_asha,
         progress_reporter=reporter,
         name=exp_name,
         local_dir=local_dir,
         metric="val_loss",
         mode="min",
         stop=stop,
+        #search_alg=...
     )
 
 
@@ -122,15 +175,16 @@ if __name__ == "__main__":
 
         num = filename.split("_")[2].split(".")[0]
 
-        exp_name = "test"
+        exp_name = "location_based"
         experiment = f"data_{num}-{exp_name}"
 
         main(
             exp_name=experiment,
             file_name=filename,
             n_samples=1,
-            max_num_epochs=200,
-            min_num_epochs=50,
+            max_num_epochs=500,
+            min_num_epochs=100,
         )
-
         break
+
+ 

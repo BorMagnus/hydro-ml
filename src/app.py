@@ -1,16 +1,20 @@
-import streamlit as st
-import pandas as pd
-
 import os
+import random
 import sys
+from functools import partial
+from typing import List
 
-# Get the absolute path of the parent directory (Hydro-ML)
-root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-# Add the root directory to sys.path
-sys.path.append(root_dir)
+import pandas as pd
+import ray
+import streamlit as st
+from ray import tune
+from ray.tune.schedulers import ASHAScheduler
 
+# Make sure that the src folder is in the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
-import plotly.express as px
+from data import Data
+from train import train_model
 
 
 def describe_dataframe(dataframe):
@@ -22,7 +26,11 @@ st.title("Inflow forecasting")
 st.text("This is an app to create inflow forecast")
 st.text("Info page!")
 
-uploaded_file = st.sidebar.file_uploader("Choose a CSV file to upload", type=["csv"])
+uploaded_file = st.sidebar.file_uploader(
+    "Choose a CSV file to upload",
+    type=["csv"],
+    help="The uploaded file need to be an CSV file with the target and datetime values in it.",
+)
 if uploaded_file:
     dataframe = pd.read_csv(uploaded_file)
     if "df" not in st.session_state:
