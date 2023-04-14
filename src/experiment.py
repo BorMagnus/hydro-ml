@@ -15,77 +15,86 @@ from data import Data
 from train import train_model
 
 
-def get_variables_data(file_name):
+def get_variables_combinations(file_name, datetime_variable):
+
+    d = Data(file_name, datetime_variable)
+    variables = d.get_all_variables()
+    variables.remove("Flow_Kalltveit")
+
+    univariate = []
+    nilsebu = []
+    lyngsaana = []
+    hiafossen = []
+    fister = []
+    kalltveit = []
+    hiavatn = []
+    musdalsvatn = []
+    viglesdalsvatn = []
+    discharge = []
+    meteorological = []
+    hydrological = []
+    hbv = []
     
-    Univariate_variable = []
+    for var in variables:
+        if "Nilsebu" in var:
+            nilsebu.append(var)
+        if "Lyngsaana" in var:
+            lyngsaana.append(var)
+        if "Hiafossen" in var:
+            hiafossen.append(var)
+        if "Fister" in var:
+            fister.append(var)
+        if "Kalltveit" in var:
+            kalltveit.append(var)
+        if "Hiavatn" in var:
+            hiavatn.append(var)
+        if "Musdalsvatn" in var:
+            musdalsvatn.append(var)
+        if "Viglesdalsvatn" in var:
+            viglesdalsvatn.append(var)
+        if "HBV" in var:
+            hbv.append(var)
+        if "Precipitation" in var or "Wind_Speed" in var or "Wind_Direction" in var or "Relative_Humidity" in var:
+            meteorological.append(var)
+        if "Water" in var:
+            hydrological.append(var)
+        if "Flow" in var:
+            discharge.append(var)
 
-    Nilsebu_variables = [
-        "Wind_Speed_Nilsebu",
-        "Air_Temperature_Nilsebu",
-        "Wind_Direction_Nilsebu",
-        "Relative_Humidity_Nilsebu",
-        "Precipitation_Nilsebu",
-    ]
-
-    Fister_variables = [
-        "Air_Temperature_Fister",
-        "Precipitation_Fister",
-    ]
-
-    Kalltveit_variables = [
-        "Water_Level_Kalltveit",
-        "Water_Temperature_Kalltveit_Kum",
-        "Flow_Without_Tapping_Kalltveit",
-    ]
-
-    Lyngsaana_variables = [
-        "Flow_Lyngsvatn_Overflow",
-        "Flow_Tapping",
-        "Flow_Lyngsaana",
-        "Water_Temperature_Lyngsaana",
-    ]
-
-    HBV_variables = [
-        "Flow_HBV",
-        "Precipitation_HBV",
-        "Temperature_HBV",
-    ]
-
-    meteorological_variables = [
-        "Wind_Speed_Nilsebu",
-        "Air_Temperature_Nilsebu",
-        "Wind_Direction_Nilsebu",
-        "Relative_Humidity_Nilsebu",
-        "Air_Temperature_Fister",
-        "Precipitation_Fister",
-        "Precipitation_Nilsebu",
-    ]
-
-    hydrological_variables = [
-        "Water_Level_Kalltveit",
-        "Water_Temperature_Kalltveit_Kum",
-        "Flow_Lyngsvatn_Overflow",
-        "Flow_Tapping",
-        "Flow_Without_Tapping_Kalltveit",
-        "Flow_Lyngsaana",
-        "Water_Temperature_Lyngsaana",
-    ]
+        # Remove HBV values from the meteorological, hydrological, and discharge lists
+        meteorological = [var for var in meteorological if "HBV" not in var]
+        hydrological = [var for var in hydrological if "HBV" not in var]
+        discharge = [var for var in discharge if "HBV" not in var]
 
     all_variables_combinations = [
-        Univariate_variable,
-        Nilsebu_variables,
-        Fister_variables,
-        #Kalltveit_variables,
-        #Lyngsaana_variables,
-        Nilsebu_variables+Fister_variables,
-        #HBV_variables,
-        meteorological_variables,
-        hydrological_variables,
-        #meteorological_variables + HBV_variables,
-        #hydrological_variables + HBV_variables,
-        meteorological_variables + hydrological_variables,
-        #meteorological_variables + hydrological_variables + HBV_variables,
+        univariate,
+        nilsebu,
+        fister,
+#        kalltveit,
+#        lyngsaana,
+        nilsebu+fister,
+        #hbv,
+        meteorological,
+        hydrological,
+        #meteorological + hbv,
+        #hydrological + hbv,
+        meteorological + hydrological,
+        #meteorological + hydrological + hbv,
     ]
+    
+    #print(file_name)
+    #print("Length of univariate: ", len(univariate))
+    #print("Length of nilsebu: ", len(nilsebu))
+    #print("Length of lyngsaana: ", len(lyngsaana))
+    #print("Length of hiafossen: ", len(hiafossen))
+    #print("Length of fister: ", len(fister))
+    #print("Length of kalltveit: ", len(kalltveit))
+    #print("Length of discharge: ", len(discharge))
+    #print("Length of meteorological: ", len(meteorological))
+    #print("Length of hydrological: ", len(hydrological))
+    #print("Length of hbv: ", len(hbv))
+    #print("Length of other: ", len(other))
+    #print()
 
     return all_variables_combinations
 
@@ -103,6 +112,7 @@ def main(
 
     models = [
         "LSTMSpatialTemporalAttention",
+        "LSTMSpatialAttention",
         "LSTMTemporalAttention",
         "LSTM",
     ]  # Can be: "FCN", "FCNTemporalAttention", "LSTMTemporalAttention", "LSTM", "LSTMSpatialAttention", "LSTMSpatialTemporalAttention"
@@ -114,7 +124,7 @@ def main(
             "target_variable": target_variable,
             "sequence_length": tune.choice([25]),
             "batch_size": tune.choice([128, 256, 512]),
-            "variables": tune.grid_search(get_variables_data(file_name)),
+            "variables": tune.grid_search(get_variables_combinations(file_name, datetime_variable)),
             "split_size": {"train_size": 0.7, "val_size": 0.2, "test_size": 0.1},
         },
         "model": tune.grid_search(models),
@@ -130,7 +140,7 @@ def main(
             "learning_rate": tune.loguniform(1e-5, 1e-1),
             "weight_decay": tune.loguniform(1e-5, 1e-1),
         },
-        "num_epochs": 200 #tune.randint(100, 500),
+        "num_epochs": max_num_epochs #tune.randint(100, 500),
     }
 
     reporter = tune.CLIReporter(
@@ -156,6 +166,7 @@ def main(
         #scheduler=scheduler_asha,
         progress_reporter=reporter,
         name=exp_name,
+
         local_dir=local_dir,
         metric="val_loss",
         mode="min",
@@ -174,17 +185,14 @@ if __name__ == "__main__":
         file_path = os.path.join(clean_data_dir, filename)
 
         num = filename.split("_")[2].split(".")[0]
-
-        exp_name = "location_based"
+        exp_name = "attention_max"
         experiment = f"data_{num}-{exp_name}"
 
         main(
             exp_name=experiment,
             file_name=filename,
             n_samples=1,
-            max_num_epochs=500,
-            min_num_epochs=100,
+            max_num_epochs=200,
+            min_num_epochs=50,
         )
-        break
-
  

@@ -7,32 +7,67 @@ class TemporalAttention(nn.Module):
     def __init__(self, hidden_size):
         super(TemporalAttention, self).__init__()
         self.hidden_size = hidden_size
-        self.attn = nn.Linear(hidden_size, hidden_size)
-        self.v = nn.Linear(hidden_size, 1, bias=False)
 
-    def forward(self, hidden_states):
-        # hidden_states shape: (seq_len, batch_size, hidden_size)
-        energy = torch.tanh(self.attn(hidden_states))
-        attention_weights = torch.softmax(self.v(energy), dim=0)
-        context_vector = torch.sum(attention_weights * hidden_states, dim=0)
-        return context_vector
+        self.query = nn.Linear(hidden_size, hidden_size)
+        self.key = nn.Linear(hidden_size, hidden_size)
+        self.value = nn.Linear(hidden_size, hidden_size)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, lstm_out, return_weights=False):
+        # input to temporal attention (batch_size, seq_len, hidden_size)
+        query = self.query(lstm_out)  
+        key = self.key(lstm_out)  
+        value = self.value(lstm_out)  
+
+        attention_logits = torch.bmm(query.transpose(0, 1), key.transpose(0, 1).transpose(1, 2))
+        attention_weights = self.softmax(attention_logits)
+
+        attention_out = torch.bmm(attention_weights, value.transpose(0, 1))
+        attention_out = attention_out.transpose(0, 1)
+
+        if return_weights:
+            return attention_out, attention_weights
+        else:
+            return attention_out
 
 
 class SpatialAttention(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, input_size):
         super(SpatialAttention, self).__init__()
         self.hidden_size = hidden_size
-        self.attn = nn.Linear(hidden_size, hidden_size)
-        self.v = nn.Linear(hidden_size, 1, bias=False)
+        self.input_size = input_size
 
-    def forward(self, hidden_states):
-        # hidden_states shape: (batch_size, seq_len, hidden_size)
-        energy = torch.sigmoid(self.attn(hidden_states))
-        attention_weights = torch.softmax(self.v(energy), dim=2)
-        context_vector = torch.sum(
-            attention_weights * hidden_states, dim=2, keepdim=True
-        )
-        return context_vector * hidden_states
+        self.query = nn.Linear(input_size, input_size)  #           (input_size, input_size)
+        self.key = nn.Linear(input_size, 25)            #           (input_size, seq_len)
+        self.value = nn.Linear(25, hidden_size) #          (seq_len, hidden_size)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x, return_weights=False):
+        #print()
+        #print("Attention")
+        #print("input", x.shape)                       # Input shape (batch_size, seq_len, input_size)
+        query = self.query(x)  # Shape                              (batch_size, seq_len, input_size)
+        #print("query", query.shape)
+        key = self.key(x)      # Shape                              (batch_size, seq_len, seq_len)
+        #print("key", key.shape)
+        value = self.value(x.transpose(1, 2))  # Shape              (batch_size, input_size, hidden_size)
+        #print("value", value.shape)
+
+        attention_logits = torch.bmm(query.transpose(1, 2), key)  # (batch_size, input_size, seq_len)
+        #print("attention_logits", attention_logits.shape)
+
+        attention_weights = self.softmax(attention_logits)#         (batch_size, input_size, seq_len)
+        #print("attention_weights", attention_weights.shape)
+        
+        attention_out = torch.bmm(
+            attention_weights.transpose(1, 2), value)#              (batch_size, seq_len, hidden_size)
+        #print(f"attention_out: {attention_weights.transpose(1, 2).shape}x{value.shape}={attention_out.shape}")
+        #print()
+        
+        if return_weights:
+            return attention_out, attention_weights
+        else:
+            return attention_out
 
 
 class LSTM(nn.Module):
@@ -108,30 +143,47 @@ class LSTMTemporalAttention(nn.Module):
 
         # define the linear output layer
         self.linear_out = nn.Linear(hidden_size, output_size)
-
-    def forward(self, x):
-        # apply the linear input layer
-        x = self.linear_in(x)
+    
+    def forward(self, x, return_weights=False): # Input shape (batch_size, seq_len, input_size)
+        #print("input: \t\t\t",x.shape)
+        # apply the linear input
+        x = self.linear_in(x) # linear_in shape (batch_size, seq_len, hidden_size)
+        #print("linear_in: \t\t",x.shape)
 
         # apply batch normalization
-        x = self.batch_norm(x.transpose(1, 2)).transpose(1, 2)
+        x = self.batch_norm(x.transpose(1, 2)).transpose(1, 2) # batch_norm shape (batch_size, seq_len, hidden_size)
+        #print("batch norm: \t\t",x.shape)
 
         # apply the LSTM layer
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        lstm_out, _ = self.lstm(x, (h0, c0))
+        lstm_out, _ = self.lstm(x, (h0, c0)) # lstm_out shape (batch_size, seq_len, hidden_size)
+        #print("lstm out: \t\t",lstm_out.shape)
 
-        # apply temporal attention
-        attention_out = self.temporal_attention(lstm_out.transpose(0, 1))
+        # apply temporal attention. attention_out shape (seq_len, batch_size, hidden_size)
+        if return_weights:
+            attention_out, temporal_attention_weights  = self.temporal_attention(lstm_out.transpose(0, 1), return_weights)
+        else:
+            attention_out = self.temporal_attention(lstm_out.transpose(0, 1))
+        #print("attention out: \t\t",attention_out.shape)
+
+        # select the last time step from the attention_out tensor
+        attention_out_last = attention_out[-1] # attention_out_last shape (batch_size, hidden_size)
+        #print("attention_out_last: \t",attention_out_last.shape)
 
         # apply the linear output layer
-        out = self.linear_out(attention_out)
+        out = self.linear_out(attention_out_last) # linear_out shape (batch_size, output_size)
+        #print("linear_out: \t\t",out.shape)
 
         # squeeze the output tensor to shape [batch_size]
         out = out.squeeze()
+        #print("output: \t\t",out.shape)
 
-        return out
-
+        if return_weights:
+            return out, (None, temporal_attention_weights)
+        else:
+            return out
+    
 
 class LSTMSpatialTemporalAttention(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size):
@@ -142,10 +194,12 @@ class LSTMSpatialTemporalAttention(nn.Module):
         self.output_size = output_size
 
         # define the spatial attention layer
-        self.spatial_attention = SpatialAttention(hidden_size)
+        self.spatial_attention = SpatialAttention(hidden_size, input_size)
 
         # define the linear input layer
-        self.linear_in = nn.Linear(input_size, hidden_size)
+        self.linear_in = nn.Linear(input_size, input_size)
+
+        self.linear = nn.Linear(hidden_size, input_size)
 
         # define the LSTM layer
         self.lstm = nn.LSTM(
@@ -159,42 +213,69 @@ class LSTMSpatialTemporalAttention(nn.Module):
         self.temporal_attention = TemporalAttention(hidden_size)
 
         # define the batch normalization layer
-        self.batch_norm = nn.BatchNorm1d(hidden_size)
+        self.batch_norm = nn.BatchNorm1d(input_size)
 
         # define the linear output layer
         self.linear_out = nn.Linear(hidden_size, output_size)
 
-    def forward(self, x):
+    def forward(self, x, return_weights=False):
         # Input shape (batch_size, seq_len, in_dim)
-        # apply the linear input layer
+        #print("input: ", x.shape)
+
+        # linear in shape (batch_size, seq_len, hidden_size)
         x = self.linear_in(x)
+        #print("linear_in: ", x.shape)
 
-        # apply batch normalization
+        # apply batch normalization shape (batch_size, seq_len, hidden_size)
         x = self.batch_norm(x.transpose(1, 2)).transpose(1, 2)
+        #print("batch_norm: ", x.shape)
 
-        # apply the spatial attention layer
-        spatial_out = self.spatial_attention(x)
+        #x = self.linear(x)
+        #print("reshaped: ", x.shape)
 
-        # apply the LSTM layer
+        # spatial input shape (batch_size, seq_len, hidden_size)
+        # spatial attention layer output is shape (batch_size, seq_len, hidden_size)
+        # spatial attention weights is shape (batch_size, input_size, input_size)
+        if return_weights:
+            spatial_out, spatial_attention_weights = self.spatial_attention(x, return_weights)
+        else:
+            spatial_out = self.spatial_attention(x)
+        #print("spatial_out: ", spatial_out.shape)
+
+        # apply the LSTM layer 
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         lstm_out, _ = self.lstm(spatial_out, (h0, c0))
+        #print("lstm_out: ", lstm_out.shape)
 
-        # apply temporal attention
-        attention_out = self.temporal_attention(lstm_out.transpose(0, 1))
+        # temporal input shape (batch_size, seq_len, hidden_size)
+        # apply temporal attention output is shape (seq_len, batch_size, hidden_size)
+        # temporal attention weights is shape (batch_size, sequence_length, sequence_length)
+        if return_weights:
+            attention_out, temporal_attention_weights  = self.temporal_attention(lstm_out.transpose(0, 1), return_weights)
+        else:
+            attention_out = self.temporal_attention(lstm_out.transpose(0, 1))
+        #print("attention_out: ", attention_out.shape)
 
-        # apply the linear output layer
-        out = self.linear_out(attention_out)
+        # select the last time step from the attention_out tensor. shape (batch_size, hidden_size)
+        attention_out_last = attention_out[-1]
+        #print("attention_out_last: ", attention_out_last.shape)
+
+        # apply the linear output layer. shape (batch_size, output_size)
+        out = self.linear_out(attention_out_last)
+        #print("linear_out: ", out.shape)
 
         # squeeze the output tensor to shape [batch_size]
         out = out.squeeze()
+        #print("output: ", out.shape)
 
-        return out
+        if return_weights:
+            return out, (spatial_attention_weights, temporal_attention_weights)
+        else:
+            return out
 
 
-class LSTMSpatialAttention(
-    nn.Module
-):  # TODO: UserWarning: Using a target size (torch.Size([512])) that is different to the input size (torch.Size([25, 512]))
+class LSTMSpatialAttention(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size):
         super(LSTMSpatialAttention, self).__init__()
         self.input_size = input_size
@@ -203,10 +284,10 @@ class LSTMSpatialAttention(
         self.output_size = output_size
 
         # define the spatial attention layer
-        self.spatial_attention = SpatialAttention(hidden_size)
+        self.spatial_attention = SpatialAttention(hidden_size, input_size)
 
         # define the linear input layer
-        self.linear_in = nn.Linear(input_size, hidden_size)
+        self.linear_in = nn.Linear(input_size, input_size)
 
         # define the LSTM layer
         self.lstm = nn.LSTM(
@@ -217,33 +298,54 @@ class LSTMSpatialAttention(
         )
 
         # define the batch normalization layer
-        self.batch_norm = nn.BatchNorm1d(hidden_size)
+        self.batch_norm = nn.BatchNorm1d(input_size)
 
         # define the linear output layer
         self.linear_out = nn.Linear(hidden_size, output_size)
 
-    def forward(self, x):
-        # apply the linear input layer
+    def forward(self, x, return_weights=False):
+        # Input shape (batch_size, seq_len, in_dim)
+        #print("input: ", x.shape)
+
+        # linear in shape (batch_size, seq_len, hidden_size)
         x = self.linear_in(x)
+        #print("linear_in: ", x.shape)
 
-        # apply batch normalization
+        # apply batch normalization shape (batch_size, seq_len, hidden_size)
         x = self.batch_norm(x.transpose(1, 2)).transpose(1, 2)
+        #print("batch_norm: ", x.shape)
 
-        # apply the spatial attention layer
-        spatial_out = self.spatial_attention(x)
+        # spatial input shape (batch_size, seq_len, hidden_size)
+        # spatial attention layer output is shape (batch_size, seq_len, hidden_size)
+        # spatial attention weights is shape (batch_size, input_size, input_size)
+        if return_weights:
+            spatial_out, spatial_attention_weights = self.spatial_attention(x, return_weights)
+        else:
+            spatial_out = self.spatial_attention(x)
+        #print("spatial_out: ", spatial_out.shape)
 
-        # apply the LSTM layer
+        # apply the LSTM layer 
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         lstm_out, _ = self.lstm(spatial_out, (h0, c0))
+        #print("lstm_out: ", lstm_out.shape)
 
-        # apply the linear output layer
-        out = self.linear_out(lstm_out.transpose(0, 1))
+        # select the last time step from the lstm_out tensor. shape (batch_size, hidden_size)
+        lstm_out_last = lstm_out[:, -1, :]
+        #print("lstm_out_last: ", lstm_out_last.shape)
+
+        # apply the linear output layer. shape (batch_size, output_size)
+        out = self.linear_out(lstm_out_last)
+        #print("linear_out: ", out.shape)
 
         # squeeze the output tensor to shape [batch_size]
         out = out.squeeze()
+        #print("output: ", out.shape)
 
-        return out
+        if return_weights:
+            return out, (spatial_attention_weights, None)
+        else:
+            return out
 
 
 class FCN(nn.Module):
