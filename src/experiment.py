@@ -111,19 +111,19 @@ def main(
     datetime_variable = "Datetime"
 
     models = [
-        "LSTMSpatialTemporalAttention",
+        #"LSTM",
+        #"LSTMTemporalAttention",
         "LSTMSpatialAttention",
-        "LSTMTemporalAttention",
-        "LSTM",
+        #"LSTMSpatialTemporalAttention",
     ]  # Can be: "FCN", "FCNTemporalAttention", "LSTMTemporalAttention", "LSTM", "LSTMSpatialAttention", "LSTMSpatialTemporalAttention"
 
     config = {
         "data_file": file_name,
         "datetime": datetime_variable,
-        "data": {
+        "data": { 
             "target_variable": target_variable,
             "sequence_length": tune.choice([25]),
-            "batch_size": tune.choice([128, 256, 512]),
+            "batch_size": tune.choice([128, 256]),
             "variables": tune.grid_search(get_variables_combinations(file_name, datetime_variable)),
             "split_size": {"train_size": 0.7, "val_size": 0.2, "test_size": 0.1},
         },
@@ -132,7 +132,7 @@ def main(
             "input_size": tune.sample_from(
                 lambda spec: len(spec.config.data["variables"]) + 1
             ),
-            "hidden_size": tune.choice([32, 64, 128]),
+            "hidden_size": tune.choice([32, 64]),
             "num_layers": tune.choice([1, 2, 3]),
             "output_size": 1,
         },
@@ -140,7 +140,7 @@ def main(
             "learning_rate": tune.loguniform(1e-5, 1e-1),
             "weight_decay": tune.loguniform(1e-5, 1e-1),
         },
-        "num_epochs": max_num_epochs #tune.randint(100, 500),
+        "num_epochs": max_num_epochs
     }
 
     reporter = tune.CLIReporter(
@@ -159,19 +159,20 @@ def main(
         os.makedirs(local_dir)
 
     results = tune.run(
-        partial(train_model),
+        train_model,
         resources_per_trial={"cpu": 12, "gpu": 1},
         config=config,
         num_samples=n_samples,
         #scheduler=scheduler_asha,
         progress_reporter=reporter,
         name=exp_name,
-
         local_dir=local_dir,
         metric="val_loss",
         mode="min",
         stop=stop,
         #search_alg=...
+        keep_checkpoints_num=1, 
+        checkpoint_score_attr="val_loss"
     )
 
 
@@ -185,7 +186,7 @@ if __name__ == "__main__":
         file_path = os.path.join(clean_data_dir, filename)
 
         num = filename.split("_")[2].split(".")[0]
-        exp_name = "attention_max"
+        exp_name = "spatial"
         experiment = f"data_{num}-{exp_name}"
 
         main(

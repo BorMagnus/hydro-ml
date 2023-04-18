@@ -27,6 +27,8 @@ missingno = "^0.5.2"
 ipykernel = "^6.22.0"
 nbformat = "^5.8.0"
 bayesian-optimization = "^1.4.2"
+statsmodels = "^0.13.5"
+pmdarima = "^2.0.3"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.22.0"
