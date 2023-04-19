@@ -82,20 +82,6 @@ def get_variables_combinations(file_name, datetime_variable):
         #meteorological + hydrological + hbv,
     ]
     
-    #print(file_name)
-    #print("Length of univariate: ", len(univariate))
-    #print("Length of nilsebu: ", len(nilsebu))
-    #print("Length of lyngsaana: ", len(lyngsaana))
-    #print("Length of hiafossen: ", len(hiafossen))
-    #print("Length of fister: ", len(fister))
-    #print("Length of kalltveit: ", len(kalltveit))
-    #print("Length of discharge: ", len(discharge))
-    #print("Length of meteorological: ", len(meteorological))
-    #print("Length of hydrological: ", len(hydrological))
-    #print("Length of hbv: ", len(hbv))
-    #print("Length of other: ", len(other))
-    #print()
-
     return all_variables_combinations
 
 
@@ -111,9 +97,9 @@ def main(
     datetime_variable = "Datetime"
 
     models = [
-        #"LSTM",
+        "LSTM",
         #"LSTMTemporalAttention",
-        "LSTMSpatialAttention",
+        #"LSTMSpatialAttention",
         #"LSTMSpatialTemporalAttention",
     ]  # Can be: "FCN", "FCNTemporalAttention", "LSTMTemporalAttention", "LSTM", "LSTMSpatialAttention", "LSTMSpatialTemporalAttention"
 
@@ -122,8 +108,8 @@ def main(
         "datetime": datetime_variable,
         "data": { 
             "target_variable": target_variable,
-            "sequence_length": tune.choice([25]),
-            "batch_size": tune.choice([128, 256]),
+            "sequence_length": tune.choice([12, 25, 50]),
+            "batch_size": tune.choice([64, 128, 256]),
             "variables": tune.grid_search(get_variables_combinations(file_name, datetime_variable)),
             "split_size": {"train_size": 0.7, "val_size": 0.2, "test_size": 0.1},
         },
@@ -132,8 +118,8 @@ def main(
             "input_size": tune.sample_from(
                 lambda spec: len(spec.config.data["variables"]) + 1
             ),
-            "hidden_size": tune.choice([32, 64]),
-            "num_layers": tune.choice([1, 2, 3]),
+            "hidden_size": tune.choice([16, 32, 64, 128]),
+            "num_layers": tune.choice([1, 2, 3, 4]),
             "output_size": 1,
         },
         "training": {
@@ -148,7 +134,19 @@ def main(
     )
 
     scheduler_asha = ASHAScheduler(
-        max_t=max_num_epochs, grace_period=min_num_epochs, reduction_factor=2
+        max_t=max_num_epochs, grace_period=min_num_epochs, reduction_factor=3
+    )
+
+    scheduler_population = PopulationBasedTraining(
+        time_attr="training_iteration",
+        perturbation_interval=5,
+        hyperparam_mutations={
+            "weight_decay": tune.uniform(0.0, 0.3),
+            "learning_rate": tune.loguniform(1e-5, 1e-1),
+            "model_arch.hidden_size": tune.choice([16, 32, 64, 128]),
+            "model_arch.num_layers": tune.choice([1, 2, 3, 4]),
+            "data.batch_size": tune.choice([64, 128, 256]),
+        },
     )
 
     stop = {
@@ -163,7 +161,7 @@ def main(
         resources_per_trial={"cpu": 12, "gpu": 1},
         config=config,
         num_samples=n_samples,
-        #scheduler=scheduler_asha,
+        #scheduler=scheduler_population,
         progress_reporter=reporter,
         name=exp_name,
         local_dir=local_dir,
@@ -186,14 +184,14 @@ if __name__ == "__main__":
         file_path = os.path.join(clean_data_dir, filename)
 
         num = filename.split("_")[2].split(".")[0]
-        exp_name = "spatial"
+        exp_name = "lstm"
         experiment = f"data_{num}-{exp_name}"
 
         main(
             exp_name=experiment,
             file_name=filename,
-            n_samples=1,
-            max_num_epochs=200,
-            min_num_epochs=50,
+            n_samples=2,
+            max_num_epochs=100,
+            min_num_epochs=25,
         )
  

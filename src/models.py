@@ -29,11 +29,49 @@ class TemporalAttention(nn.Module):
             return attention_out, attention_weights
         else:
             return attention_out
-
+        
 
 class SpatialAttention(nn.Module):
     def __init__(self, hidden_size, input_size):
         super(SpatialAttention, self).__init__()
+        self.hidden_size = hidden_size
+        self.input_size = input_size
+
+        self.query = nn.Linear(input_size, input_size)  # (input_size, input_size)
+        self.key = nn.Linear(input_size, input_size)    # (input_size, input_size)
+        self.value = nn.Linear(input_size, hidden_size) # (input_size, hidden_size)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x, return_weights=False):
+        #print()
+        #print("Attention")
+        #print("input", x.shape)
+        query = self.query(x)
+        #print("query", query.shape)
+        key = self.key(x)
+        #print("key", key.shape)
+
+        attention_logits = torch.bmm(query.transpose(1, 2), key)
+        #print("attention_logits", attention_logits.shape)
+
+        attention_weights = self.softmax(attention_logits)
+        #print("attention_weights", attention_weights.shape)
+
+        attention_out = torch.bmm(x, attention_weights)
+        #print(f"attention_out: {attention_out.shape}")
+        attention_out = self.value(attention_out)
+        #print(f"attention_out: {attention_out.shape}")
+        #print()
+
+        if return_weights:
+            return attention_out, attention_weights
+        else:
+            return attention_out
+
+
+class SpatioTemporalAttention (nn.Module):
+    def __init__(self, hidden_size, input_size):
+        super(SpatioTemporalAttention, self).__init__()
         self.hidden_size = hidden_size
         self.input_size = input_size
 
@@ -199,8 +237,6 @@ class LSTMSpatialTemporalAttention(nn.Module):
         # define the linear input layer
         self.linear_in = nn.Linear(input_size, input_size)
 
-        self.linear = nn.Linear(hidden_size, input_size)
-
         # define the LSTM layer
         self.lstm = nn.LSTM(
             input_size=hidden_size,
@@ -229,9 +265,6 @@ class LSTMSpatialTemporalAttention(nn.Module):
         # apply batch normalization shape (batch_size, seq_len, input_size)
         x = self.batch_norm(x.transpose(1, 2)).transpose(1, 2)
         #print("batch_norm: ", x.shape)
-
-        #x = self.linear(x)
-        #print("reshaped: ", x.shape)
 
         # spatial input shape (batch_size, seq_len, input_size)
         # spatial attention layer output is shape (batch_size, seq_len, hidden_size)
