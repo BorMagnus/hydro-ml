@@ -14,7 +14,7 @@ class TemporalAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, lstm_out, return_weights=False):
-        # input to temporal attention (batch_size, seq_len, hidden_size)
+        # input shape (batch_size, seq_len, hidden_size)
         query = self.query(lstm_out)  
         key = self.key(lstm_out)  
         value = self.value(lstm_out)  
@@ -37,71 +37,20 @@ class SpatialAttention(nn.Module):
         self.hidden_size = hidden_size
         self.input_size = input_size
 
-        self.query = nn.Linear(input_size, input_size)  # (input_size, input_size)
-        self.key = nn.Linear(input_size, input_size)    # (input_size, input_size)
-        self.value = nn.Linear(input_size, hidden_size) # (input_size, hidden_size)
+        self.query = nn.Linear(input_size, input_size)
+        self.key = nn.Linear(input_size, input_size)
+        self.value = nn.Linear(input_size, hidden_size)
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x, return_weights=False):
-        #print()
-        #print("Attention")
-        #print("input", x.shape)
         query = self.query(x)
-        #print("query", query.shape)
         key = self.key(x)
-        #print("key", key.shape)
 
         attention_logits = torch.bmm(query.transpose(1, 2), key)
-        #print("attention_logits", attention_logits.shape)
-
         attention_weights = self.softmax(attention_logits)
-        #print("attention_weights", attention_weights.shape)
-
         attention_out = torch.bmm(x, attention_weights)
-        #print(f"attention_out: {attention_out.shape}")
         attention_out = self.value(attention_out)
-        #print(f"attention_out: {attention_out.shape}")
-        #print()
 
-        if return_weights:
-            return attention_out, attention_weights
-        else:
-            return attention_out
-
-
-class SpatioTemporalAttention (nn.Module):
-    def __init__(self, hidden_size, input_size):
-        super(SpatioTemporalAttention, self).__init__()
-        self.hidden_size = hidden_size
-        self.input_size = input_size
-
-        self.query = nn.Linear(input_size, input_size)  #           (input_size, input_size)
-        self.key = nn.Linear(input_size, 25)            #           (input_size, seq_len)
-        self.value = nn.Linear(25, hidden_size) #                   (seq_len, hidden_size)
-        self.softmax = nn.Softmax(dim=-1)
-
-    def forward(self, x, return_weights=False):
-        #print()
-        #print("Attention")
-        #print("input", x.shape)                      # Input shape (batch_size, seq_len, input_size)
-        query = self.query(x)  # Shape                              (batch_size, seq_len, input_size)
-        #print("query", query.shape)
-        key = self.key(x)      # Shape                              (batch_size, seq_len, seq_len)
-        #print("key", key.shape)
-        value = self.value(x.transpose(1, 2))  # Shape              (batch_size, input_size, hidden_size)
-        #print("value", value.shape)
-
-        attention_logits = torch.bmm(query.transpose(1, 2), key)  # (batch_size, input_size, seq_len)
-        #print("attention_logits", attention_logits.shape)
-
-        attention_weights = self.softmax(attention_logits)#         (batch_size, input_size, seq_len)
-        #print("attention_weights", attention_weights.shape)
-        
-        attention_out = torch.bmm(
-            attention_weights.transpose(1, 2), value)#              (batch_size, seq_len, hidden_size)
-        #print(f"attention_out: {attention_weights.transpose(1, 2).shape}x{value.shape}={attention_out.shape}")
-        #print()
-        
         if return_weights:
             return attention_out, attention_weights
         else:
@@ -256,15 +205,10 @@ class LSTMSpatialTemporalAttention(nn.Module):
 
     def forward(self, x, return_weights=False):
         # Input shape (batch_size, seq_len, in_dim)
-        #print("input: ", x.shape)
 
-        # linear in shape (batch_size, seq_len, input_size)
         x = self.linear_in(x)
-        #print("linear_in: ", x.shape)
 
-        # apply batch normalization shape (batch_size, seq_len, input_size)
         x = self.batch_norm(x.transpose(1, 2)).transpose(1, 2)
-        #print("batch_norm: ", x.shape)
 
         # spatial input shape (batch_size, seq_len, input_size)
         # spatial attention layer output is shape (batch_size, seq_len, hidden_size)
@@ -273,13 +217,11 @@ class LSTMSpatialTemporalAttention(nn.Module):
             spatial_out, spatial_attention_weights = self.spatial_attention(x, return_weights)
         else:
             spatial_out = self.spatial_attention(x)
-        #print("spatial_out: ", spatial_out.shape)
 
         # apply the LSTM layer 
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         lstm_out, _ = self.lstm(spatial_out, (h0, c0))
-        #print("lstm_out: ", lstm_out.shape)
 
         # temporal input shape (batch_size, seq_len, hidden_size)
         # apply temporal attention output is shape (seq_len, batch_size, hidden_size)
@@ -288,19 +230,15 @@ class LSTMSpatialTemporalAttention(nn.Module):
             attention_out, temporal_attention_weights  = self.temporal_attention(lstm_out.transpose(0, 1), return_weights)
         else:
             attention_out = self.temporal_attention(lstm_out.transpose(0, 1))
-        #print("attention_out: ", attention_out.shape)
 
         # select the last time step from the attention_out tensor. shape (batch_size, hidden_size)
         attention_out_last = attention_out[-1]
-        #print("attention_out_last: ", attention_out_last.shape)
 
         # apply the linear output layer. shape (batch_size, output_size)
         out = self.linear_out(attention_out_last)
-        #print("linear_out: ", out.shape)
 
         # squeeze the output tensor to shape [batch_size]
         out = out.squeeze()
-        #print("output: ", out.shape)
 
         if return_weights:
             return out, (spatial_attention_weights, temporal_attention_weights)
