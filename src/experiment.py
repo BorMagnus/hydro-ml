@@ -86,7 +86,7 @@ def get_variables_combinations(file_name, datetime_variable):
 
 
 def main(
-    #model,
+    model,
     exp_name,
     file_name,
     n_samples,
@@ -114,7 +114,7 @@ def main(
             "variables": tune.grid_search(get_variables_combinations(file_name, datetime_variable)),
             "split_size": {"train_size": 0.7, "val_size": 0.2, "test_size": 0.1},
         },
-        "model": tune.grid_search(models),
+        "model": tune.grid_search(model),
         "model_arch": {
             "input_size": tune.sample_from(
                 lambda spec: len(spec.config.data["variables"]) + 1
@@ -185,21 +185,21 @@ if __name__ == "__main__":
         "LSTMSpatialTemporalAttention",
     ]
     exp_names = ["lstm", "temporal", "spatial", "spatio_temporal"]
-    for i in range(1, len(models)):
+    for i in range(len(models)):
         # Loop through each datafile in the data directory
         for filename in os.listdir(clean_data_dir):
             # Get the full path of the file
             file_path = os.path.join(clean_data_dir, filename)
 
             num = filename.split("_")[2].split(".")[0]
-            exp_name = "spatio_temporal" #exp_names[i]
+            exp_name = exp_names[i]
             experiment = f"data_{num}-{exp_name}"
 
             main(
-                #[models[i]],
+                [models[i]],
                 exp_name=experiment,
                 file_name=filename,
-                n_samples=1,
+                n_samples=2,
                 max_num_epochs=100,
                 min_num_epochs=50,
             )
