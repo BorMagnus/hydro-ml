@@ -72,7 +72,7 @@ def get_variables_combinations(file_name, datetime_variable):
         fister,
 #        kalltveit,
 #        lyngsaana,
-        nilsebu+fister,
+        #nilsebu+fister,
         #hbv,
         meteorological,
         hydrological,
@@ -86,6 +86,7 @@ def get_variables_combinations(file_name, datetime_variable):
 
 
 def main(
+    #model,
     exp_name,
     file_name,
     n_samples,
@@ -97,10 +98,10 @@ def main(
     datetime_variable = "Datetime"
 
     models = [
-        "LSTM",
+        #"LSTM",
         #"LSTMTemporalAttention",
         #"LSTMSpatialAttention",
-        #"LSTMSpatialTemporalAttention",
+        "LSTMSpatialTemporalAttention",
     ]  # Can be: "FCN", "FCNTemporalAttention", "LSTMTemporalAttention", "LSTM", "LSTMSpatialAttention", "LSTMSpatialTemporalAttention"
 
     config = {
@@ -177,21 +178,30 @@ def main(
 if __name__ == "__main__":
     data_dir = "./data"
     clean_data_dir = os.path.abspath(os.path.join(data_dir, "clean_data"))
+    models = [
+        "LSTM",
+        "LSTMTemporalAttention",
+        "LSTMSpatialAttention",
+        "LSTMSpatialTemporalAttention",
+    ]
+    exp_names = ["lstm", "temporal", "spatial", "spatio_temporal"]
+    for i in range(1, len(models)):
+        # Loop through each datafile in the data directory
+        for filename in os.listdir(clean_data_dir):
+            # Get the full path of the file
+            file_path = os.path.join(clean_data_dir, filename)
 
-    # Loop through each datafile in the data directory
-    for filename in os.listdir(clean_data_dir):
-        # Get the full path of the file
-        file_path = os.path.join(clean_data_dir, filename)
+            num = filename.split("_")[2].split(".")[0]
+            exp_name = "spatio_temporal" #exp_names[i]
+            experiment = f"data_{num}-{exp_name}"
 
-        num = filename.split("_")[2].split(".")[0]
-        exp_name = "lstm"
-        experiment = f"data_{num}-{exp_name}"
+            main(
+                #[models[i]],
+                exp_name=experiment,
+                file_name=filename,
+                n_samples=1,
+                max_num_epochs=100,
+                min_num_epochs=50,
+            )
 
-        main(
-            exp_name=experiment,
-            file_name=filename,
-            n_samples=2,
-            max_num_epochs=100,
-            min_num_epochs=25,
-        )
- 
+    
