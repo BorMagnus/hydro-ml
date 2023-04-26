@@ -43,6 +43,7 @@ class SpatialAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x, return_weights=False):
+        # input shape (batch_size, seq_len, in_dim)
         query = self.query(x)
         key = self.key(x)
 
@@ -278,15 +279,15 @@ class LSTMSpatialAttention(nn.Module):
         # Input shape (batch_size, seq_len, in_dim)
         #print("input: ", x.shape)
 
-        # linear in shape (batch_size, seq_len, hidden_size)
+        # linear in shape (batch_size, seq_len, in_dim)
         x = self.linear_in(x)
         #print("linear_in: ", x.shape)
 
-        # apply batch normalization shape (batch_size, seq_len, hidden_size)
+        # apply batch normalization shape (batch_size, seq_len, in_dim)
         x = self.batch_norm(x.transpose(1, 2)).transpose(1, 2)
         #print("batch_norm: ", x.shape)
 
-        # spatial input shape (batch_size, seq_len, hidden_size)
+        # spatial input shape (batch_size, seq_len, in_dim)
         # spatial attention layer output is shape (batch_size, seq_len, hidden_size)
         # spatial attention weights is shape (batch_size, input_size, input_size)
         if return_weights:
