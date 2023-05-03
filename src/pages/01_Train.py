@@ -130,8 +130,8 @@ def select_models() -> List[str]:
         models.append("LSTM")
     if st.checkbox("LSTMTemporalAttention"):
         models.append("LSTMTemporalAttention")
-    if st.checkbox("LSTMSpatialTemporalAttention"):
-        models.append("LSTMSpatialTemporalAttention")
+    if st.checkbox("LSTMSpatioTemporalAttention"):
+        models.append("LSTMSpatioTemporalAttention")
 
     if not models:
         st.warning("Please select at least one model.")

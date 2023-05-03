@@ -103,7 +103,7 @@ class Data:
         # separate the target variable from the input variables
         if columns_to_transformation:
             X = lagged_df.drop(
-                columns=[target_variable] + columns_to_transformation, axis=1
+                columns=[target_variable] + columns_to_transformation, axis=1# TODO: Change keep all the values, but sort the order.
             )
         else:
             X = lagged_df.drop(columns=[target_variable], axis=1)

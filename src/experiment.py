@@ -98,20 +98,13 @@ def main(
     target_variable = "Flow_Kalltveit"
     datetime_variable = "Datetime"
 
-    models = [
-        #"LSTM",
-        #"LSTMTemporalAttention",
-        #"LSTMSpatialAttention",
-        #"LSTMSpatialTemporalAttention",
-    ]  # Can be: "FCN", "FCNTemporalAttention", "LSTMTemporalAttention", "LSTM", "LSTMSpatialAttention", "LSTMSpatialTemporalAttention"
-
     config = {
         "data_file": file_name,
         "datetime": datetime_variable,
         "data": { 
             "target_variable": target_variable,
-            "sequence_length": tune.choice([12, 25, 50]),
-            "batch_size": tune.choice([64, 128, 256]),
+            "sequence_length": tune.choice([25]),
+            "batch_size": tune.choice([128, 256]),
             "variables": tune.grid_search(get_variables_combinations(file_name, datetime_variable)),
             "split_size": {"train_size": 0.7, "val_size": 0.2, "test_size": 0.1},
         },
@@ -120,7 +113,7 @@ def main(
             "input_size": tune.sample_from(
                 lambda spec: len(spec.config.data["variables"]) + 1
             ),
-            "hidden_size": tune.choice([16, 32, 64, 128]),
+            "hidden_size": tune.choice([32, 64, 128]),
             "num_layers": tune.choice([1, 2, 3, 4]),
             "output_size": 1,
         },
@@ -181,10 +174,9 @@ if __name__ == "__main__":
     clean_data_dir = os.path.abspath(os.path.join(data_dir, "clean_data"))
     
     model_dict = {
-        "lstm": "LSTM",
-        "temporal": "LSTMTemporalAttention",
-        #"spatial": "LSTMSpatialAttention",
-        "spatio_temporal": "LSTMSpatialTemporalAttention",
+        "1-lstm": "LSTM",
+        "1-temporal": "LSTMTemporalAttention",
+        "1-spatio_temporal": "LSTMSpatioTemporalAttention",
     }
     for exp_name, model in model_dict.items():
         filename = "cleaned_data_4.csv"
@@ -198,7 +190,7 @@ if __name__ == "__main__":
             [model],
             exp_name=experiment,
             file_name=filename,
-            n_samples=20,
+            n_samples=50,
             max_num_epochs=100,
             min_num_epochs=25,
         )

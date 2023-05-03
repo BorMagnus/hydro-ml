@@ -92,7 +92,7 @@ def create_model(config):
         "LSTMTemporalAttention": LSTMTemporalAttention,
         "LSTM": LSTM,
         "LSTMSpatialAttention": LSTMSpatialAttention,
-        "LSTMSpatialTemporalAttention": LSTMSpatialTemporalAttention,
+        "LSTMSpatioTemporalAttention": LSTMSpatioTemporalAttention,
     }
 
     # Get the model class based on the configuration
