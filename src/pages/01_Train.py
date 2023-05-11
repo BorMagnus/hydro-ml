@@ -249,7 +249,6 @@ def layout():
             training_parameters,
         )
 
-        # Create a 4-column layout
         col1, col2, col3, col4 = st.columns(4)
 
         # Place widgets in the columns

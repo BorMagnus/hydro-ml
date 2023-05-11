@@ -14,8 +14,8 @@ class LSTM(nn.Module):
         self.batch_norm = nn.BatchNorm1d(input_size)
 
         self.layer_in = nn.Linear(input_size, hidden_size)
-
-        self.lstm = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=self.num_layers,batch_first=True)
+        self.dropout = nn.Dropout(0.3)
+        self.lstm = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=self.num_layers,batch_first=True, dropout=0.3 if num_layers > 1 else 0)
 
         self.layer_out = nn.Linear(hidden_size, output_size, bias=False)
 
@@ -27,7 +27,7 @@ class LSTM(nn.Module):
         x = x.transpose(1, 2)  # Swap back to the original dimensions
 
         x = self.layer_in(x)
-
+        x = self.dropout(x)
         # apply the LSTM layer
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
@@ -74,8 +74,8 @@ class LSTMTemporalAttention(nn.Module):
         self.batch_norm = nn.BatchNorm1d(input_size)
 
         self.layer_in = nn.Linear(input_size, hidden_size)
-
-        self.lstm = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=self.num_layers,batch_first=True)
+        self.dropout = nn.Dropout(0.3)
+        self.lstm = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=self.num_layers, batch_first=True, dropout=0.3 if num_layers > 1 else 0)
 
         self.temporal_attention = TemporalAttention(hidden_size, input_size)
 
@@ -89,7 +89,7 @@ class LSTMTemporalAttention(nn.Module):
         x = x.transpose(1, 2)  # Swap back to the original dimensions
 
         x = self.layer_in(x)
-
+        x = self.dropout(x)
         # apply the LSTM layer
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
@@ -135,8 +135,8 @@ class LSTMSpatioTemporalAttention(nn.Module):
         self.spatial_attention = SpatialAttention(input_size)
 
         self.layer_in = nn.Linear(input_size, hidden_size)
-
-        self.lstm = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=self.num_layers,batch_first=True)
+        self.dropout = nn.Dropout(0.3)
+        self.lstm = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=self.num_layers,batch_first=True, dropout=0.3 if num_layers > 1 else 0)
 
         self.temporal_attention = TemporalAttention(hidden_size, input_size)
 

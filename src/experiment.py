@@ -2,13 +2,8 @@ import os
 import random
 from functools import partial
 
-import numpy as np
 from ray import tune
 from ray.tune.schedulers import ASHAScheduler, PopulationBasedTraining
-from ray.tune.search import ConcurrencyLimiter
-from ray.tune.schedulers import AsyncHyperBandScheduler
-from ray.tune.search.bayesopt import BayesOptSearch
-from ray.tune.search.ax import AxSearch
 
 
 from data import Data
@@ -113,7 +108,7 @@ def main(
             "input_size": tune.sample_from(
                 lambda spec: len(spec.config.data["variables"]) + 1
             ),
-            "hidden_size": tune.choice([32, 64, 128]),
+            "hidden_size": tune.choice([64, 128]),
             "num_layers": tune.choice([1, 2, 3, 4]),
             "output_size": 1,
         },
@@ -134,15 +129,16 @@ def main(
 
     scheduler_population = PopulationBasedTraining(
         time_attr="training_iteration",
-        perturbation_interval=5,
+        perturbation_interval=min_num_epochs,
         hyperparam_mutations={
             "weight_decay": tune.uniform(0.0, 0.3),
             "learning_rate": tune.loguniform(1e-5, 1e-1),
-            "model_arch.hidden_size": tune.choice([16, 32, 64, 128]),
+            "model_arch.hidden_size": tune.choice([32, 64, 128]),
             "model_arch.num_layers": tune.choice([1, 2, 3, 4]),
-            "data.batch_size": tune.choice([64, 128, 256]),
+            "data.batch_size": tune.choice([128, 256]),
         },
     )
+
 
     stop = {
         "training_iteration": max_num_epochs,
@@ -156,17 +152,18 @@ def main(
         resources_per_trial={"cpu": 12, "gpu": 1},
         config=config,
         num_samples=n_samples,
-        scheduler=scheduler_asha,
+        #scheduler=scheduler_asha,
         progress_reporter=reporter,
         name=exp_name,
         local_dir=local_dir,
         metric="val_loss",
         mode="min",
         stop=stop,
-        #search_alg=...
-        keep_checkpoints_num=1, 
+        #search_alg=search_alg, # Add the chosen search algorithm
+        keep_checkpoints_num=1,
         checkpoint_score_attr="val_loss"
-    )
+)
+
 
 
 if __name__ == "__main__":
@@ -174,9 +171,10 @@ if __name__ == "__main__":
     clean_data_dir = os.path.abspath(os.path.join(data_dir, "clean_data"))
     
     model_dict = {
-        "1-lstm": "LSTM",
-        "1-temporal": "LSTMTemporalAttention",
-        "1-spatio_temporal": "LSTMSpatioTemporalAttention",
+        "all-lstm": "LSTM",
+        "all-temporal": "LSTMTemporalAttention",
+        "all-spatio_temporal": "LSTMSpatioTemporalAttention",
+        "all-fcn": "FCN"
     }
     for exp_name, model in model_dict.items():
         filename = "cleaned_data_4.csv"
@@ -190,9 +188,7 @@ if __name__ == "__main__":
             [model],
             exp_name=experiment,
             file_name=filename,
-            n_samples=50,
+            n_samples=10,
             max_num_epochs=100,
             min_num_epochs=25,
         )
-
-    

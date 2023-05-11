@@ -117,7 +117,7 @@ def train_model(config, data=None):
         data = Data(data_file, datetime_variable, data)
     else:
         data = Data(data_file, datetime_variable)
-    data_loaders = data.prepare_data(**config["data"])
+    data_loaders, _ = data.prepare_data(**config["data"])
 
     # Prepare training
     net = create_model(config)

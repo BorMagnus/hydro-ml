@@ -8,7 +8,7 @@ from filelock import FileLock
 from sklearn.decomposition import PCA
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import DataLoader, TensorDataset
 
 
@@ -71,11 +71,17 @@ class Data:
             os.path.join(self.data_dir, "transformation_data", file_name)
         )
 
-        if os.path.isfile(decomposed_data_path):
+        if False: #os.path.isfile(decomposed_data_path): #TODO: Add way to save scalers
             lagged_df = self.load_data_from_file(decomposed_data_path)
         else:
             if columns_to_transformation:
                 lagged_df = data[[target_variable] + columns_to_transformation].copy()
+                # min-max normalization
+                scalers = {}
+                for column in lagged_df.columns:
+                    scaler = MinMaxScaler()
+                    lagged_df[column] = scaler.fit_transform(lagged_df[[column]])
+                    scalers[column] = scaler
                 # create a lagged matrix of target and variables
                 new_columns = []
                 for var in [target_variable] + columns_to_transformation:
@@ -97,19 +103,25 @@ class Data:
             # remove rows with NaN values
             lagged_df.dropna(inplace=True)
 
+            scalers = {}
+            for column in lagged_df.columns:
+                scaler = MinMaxScaler()
+                lagged_df[column] = scaler.fit_transform(lagged_df[[column]])
+                scalers[column] = scaler
+
             # save lagged matrix
             lagged_df.to_csv(decomposed_data_path, index=True)
 
         # separate the target variable from the input variables
         if columns_to_transformation:
             X = lagged_df.drop(
-                columns=[target_variable] + columns_to_transformation, axis=1# TODO: Change keep all the values, but sort the order.
+                columns=[target_variable] + columns_to_transformation, axis=1
             )
         else:
             X = lagged_df.drop(columns=[target_variable], axis=1)
         y = lagged_df[f"{target_variable}"]
 
-        return X, y
+        return X, y, scalers
 
     def create_dataloader(self, X, y, sequence_length, batch_size, shuffle):
         """
@@ -173,6 +185,12 @@ class Data:
 
     def get_datetime_values(self, indices):
         return self.data.index[indices]
+    
+    def inverse_transform(self, data, scalers):
+        for column in data.columns:
+            data[column] = scalers[column].inverse_transform(data[[column]])
+        return data
+
 
     def prepare_data(
         self,
@@ -186,7 +204,7 @@ class Data:
         if not data:
             data = self.get_data()
 
-        X, y = self.data_transformation(
+        X, y, scalers = self.data_transformation(
             data=data,
             sequence_length=sequence_length,
             target_variable=target_variable,
@@ -218,4 +236,4 @@ class Data:
             "test": test_dataloader,
         }
 
-        return data_loader
+        return data_loader, scalers
