@@ -53,7 +53,7 @@ class Data:
         return data
 
     def data_transformation(
-        self, data, sequence_length, target_variable, columns_to_transformation=[]
+        self, data, sequence_length, target_variable, columns_to_transformation=None
     ):
         text = (
             str(columns_to_transformation)
@@ -75,53 +75,38 @@ class Data:
             lagged_df = self.load_data_from_file(decomposed_data_path)
         else:
             if columns_to_transformation:
-                lagged_df = data[[target_variable] + columns_to_transformation].copy()
-                # min-max normalization
-                scalers = {}
-                for column in lagged_df.columns:
-                    scaler = MinMaxScaler()
-                    lagged_df[column] = scaler.fit_transform(lagged_df[[column]])
-                    scalers[column] = scaler
-                # create a lagged matrix of target and variables
-                new_columns = []
-                for var in [target_variable] + columns_to_transformation:
-                    for i in range(1, sequence_length + 1):
-                        new_columns.append(lagged_df[var].shift(i).rename(f"{var}_{i}"))
-                lagged_df = pd.concat([lagged_df] + new_columns, axis=1)
+                columns = [target_variable] + columns_to_transformation
             else:
-                lagged_df = data[[target_variable]].copy()
-                # create a lagged matrix of target
-                new_columns = []
-                for i in range(1, sequence_length + 1):
-                    new_columns.append(
-                        lagged_df[target_variable]
-                        .shift(i)
-                        .rename(f"{target_variable}_{i}")
-                    )
-                lagged_df = pd.concat([lagged_df] + new_columns, axis=1)
+                columns = [target_variable]
 
-            # remove rows with NaN values
-            lagged_df.dropna(inplace=True)
+            lagged_df = data[columns].copy()
 
+            # min-max normalization
             scalers = {}
             for column in lagged_df.columns:
                 scaler = MinMaxScaler()
                 lagged_df[column] = scaler.fit_transform(lagged_df[[column]])
                 scalers[column] = scaler
 
+            # create a lagged matrix of target and variables
+            new_columns = []
+            for var in columns:
+                for i in range(1, sequence_length + 1):
+                    new_columns.append(lagged_df[var].shift(i).rename(f"{var}_{i}"))
+            lagged_df = pd.concat([lagged_df] + new_columns, axis=1)
+
+            # remove rows with NaN values
+            lagged_df.dropna(inplace=True)
+
             # save lagged matrix
             lagged_df.to_csv(decomposed_data_path, index=True)
 
         # separate the target variable from the input variables
-        if columns_to_transformation:
-            X = lagged_df.drop(
-                columns=[target_variable] + columns_to_transformation, axis=1
-            )
-        else:
-            X = lagged_df.drop(columns=[target_variable], axis=1)
+        X = lagged_df.drop(columns=columns, axis=1)
         y = lagged_df[f"{target_variable}"]
 
         return X, y, scalers
+
 
     def create_dataloader(self, X, y, sequence_length, batch_size, shuffle):
         """
@@ -186,11 +171,8 @@ class Data:
     def get_datetime_values(self, indices):
         return self.data.index[indices]
     
-    def inverse_transform(self, data, scalers):
-        for column in data.columns:
-            data[column] = scalers[column].inverse_transform(data[[column]])
-        return data
-
+    def inverse_transform_target(self, data, scaler):
+        return scaler.inverse_transform(data)
 
     def prepare_data(
         self,

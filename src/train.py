@@ -88,10 +88,8 @@ def create_model(config):
     # Map model names to classes
     model_classes = {
         "FCN": FCN,
-        "FCNTemporalAttention": FCNTemporalAttention,
-        "LSTMTemporalAttention": LSTMTemporalAttention,
         "LSTM": LSTM,
-        "LSTMSpatialAttention": LSTMSpatialAttention,
+        "LSTMTemporalAttention": LSTMTemporalAttention,
         "LSTMSpatioTemporalAttention": LSTMSpatioTemporalAttention,
     }
 

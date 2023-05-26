@@ -124,8 +124,6 @@ def select_models() -> List[str]:
     models = []
     if st.checkbox("FCN"):
         models.append("FCN")
-    if st.checkbox("FCNTemporalAttention"):
-        models.append("FCNTemporalAttention")
     if st.checkbox("LSTM"):
         models.append("LSTM")
     if st.checkbox("LSTMTemporalAttention"):
@@ -194,7 +192,7 @@ def train(config, exp_name, n_samples, min_num_epochs, max_num_epochs):
 
     stop = {"training_iteration": max_num_epochs}
 
-    local_dir = "./ray_results/"
+    local_dir = "../ray_results/"
     if not os.path.exists(local_dir):
         os.makedirs(local_dir)
 
@@ -203,7 +201,7 @@ def train(config, exp_name, n_samples, min_num_epochs, max_num_epochs):
         resources_per_trial={"cpu": 12, "gpu": 1},
         config=config,
         num_samples=n_samples,
-        scheduler=scheduler_asha,
+        #scheduler=scheduler_asha,
         progress_reporter=reporter,
         name=exp_name,
         local_dir=local_dir,
@@ -282,7 +280,6 @@ def layout():
                         "config/model",
                         "train_loss",
                         "val_loss",
-                        "test_loss",
                         "time_total_s",
                         "config/data/variables",
                     ]

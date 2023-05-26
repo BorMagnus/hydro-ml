@@ -24,10 +24,12 @@ def historical_average(data, window=25):
 
     predictions = []
     forecast_history = train[-window:].tolist()
+    start_time = time.time()  # Start measuring prediction time
     for _ in range(len(test)):
         pred = np.mean(forecast_history[-window:])
         predictions.append(pred)
         forecast_history.append(test[_])
+    end_time = time.time()  # Stop measuring prediction time
 
     # Inverse the transformation
     predictions = np.cumsum(predictions)
@@ -44,7 +46,9 @@ def historical_average(data, window=25):
     # convert to KB
     model_size_kb = model_size_bytes / 1024
 
-    return mae, mse, rmse, mape, r2, model_size_kb
+    prediction_time = end_time - start_time
+
+    return mae, mse, rmse, mape, r2, model_size_kb, prediction_time
 
 def historical_average_multistep(data, window=25, steps=12):
     train_size = int(len(data) * 0.9)
@@ -86,7 +90,9 @@ def train_arima(target_data, order):
     model_fit = model.fit()
     
     # generate predictions on the test data
+    start_prediction_time = time.time()  # Start measuring prediction time
     predictions = model_fit.predict(start=train_size, end=len(target_data)-1, typ='levels')
+    end_prediction_time = time.time()  # Stop measuring prediction time
 
     # Inverse the transformation
     predictions = np.cumsum(predictions)
@@ -94,6 +100,7 @@ def train_arima(target_data, order):
 
     end_time = time.time()
     training_time_arima = end_time - start_time
+    prediction_time_arima = end_prediction_time - start_prediction_time
     mae_arima = mean_absolute_error(test_data, predictions)
     mse_arima = mean_squared_error(test_data, predictions)
     rmse_arima = np.sqrt(mse_arima)
@@ -106,7 +113,7 @@ def train_arima(target_data, order):
     # convert to KB
     model_size_kb = model_size_bytes / 1024
 
-    return mae_arima, mse_arima, rmse_arima, mape_arima, r2_arima, training_time_arima, model_size_kb
+    return mae_arima, mse_arima, rmse_arima, mape_arima, r2_arima, training_time_arima, prediction_time_arima, model_size_kb
 
 
 def recursive_arima(target_data, order, forecast_horizon=1):
@@ -175,8 +182,8 @@ if __name__ == "__main__":
     stationary_target_data = stationary_data.values
     order = find_best_order(stationary_target_data)
 
-    mae_arima, mse_arima, rmse_arima, mape_arima, r2_arima, training_time_arima, arima_size_kb = train_arima(stationary_target_data, order=order)
-    mae_ha, mse_ha, rmse_ha, mape_ha, r2_ha, ha_size_kb = historical_average(stationary_target_data)
+    mae_arima, mse_arima, rmse_arima, mape_arima, r2_arima, training_time_arima, pred_time_arima, arima_size_kb = train_arima(stationary_target_data, order=order)
+    mae_ha, mse_ha, rmse_ha, mape_ha, r2_ha, ha_size_kb, pred_time_HA = historical_average(stationary_target_data)
     print("ARIMA Model 1 hour ahead:")
     print(f"MAE: {mae_arima:.4f}")
     print(f"MSE: {mse_arima:.4f}")
@@ -184,6 +191,7 @@ if __name__ == "__main__":
     print(f"MAPE: {mape_arima:.4f}")
     print(f"R2: {r2_arima:.4f}")
     print(f"Training Time: {training_time_arima:.2f} seconds")
+    print(f"Pred Time: {pred_time_arima}")
     print(f"Model size {arima_size_kb}KB")
     print()
     print("HA Model 1 hour ahead:")
@@ -192,6 +200,7 @@ if __name__ == "__main__":
     print(f"RMSE: {rmse_ha:.4f}")
     print(f"MAPE: {mape_ha:.4f}")
     print(f"R2: {r2_ha:.4f}")
+    print(f"Pred Time: {pred_time_HA}")
     print(f"Model size {ha_size_kb}KB")
     print()
     

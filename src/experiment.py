@@ -29,6 +29,8 @@ def get_variables_combinations(file_name, datetime_variable):
     meteorological = []
     hydrological = []
     hbv = []
+
+    meteorological_feature_selected = []
     
     for var in variables:
         if "Nilsebu" in var:
@@ -75,13 +77,12 @@ def get_variables_combinations(file_name, datetime_variable):
         #hydrological + hbv,
         meteorological + hydrological,
         meteorological + hydrological + hbv,
-        variables
     ]
     
     return all_variables_combinations
 
-
 def main(
+        i,
     model,
     exp_name,
     file_name,
@@ -93,14 +94,16 @@ def main(
     target_variable = "Flow_Kalltveit"
     datetime_variable = "Datetime"
 
+    variables = [get_variables_combinations(file_name, datetime_variable)[i]]
+
     config = {
         "data_file": file_name,
         "datetime": datetime_variable,
         "data": { 
             "target_variable": target_variable,
             "sequence_length": tune.choice([25]),
-            "batch_size": tune.choice([128, 256]),
-            "variables": tune.grid_search(get_variables_combinations(file_name, datetime_variable)),
+            "batch_size": tune.choice([256]),
+            "variables": tune.grid_search(variables),
             "split_size": {"train_size": 0.7, "val_size": 0.2, "test_size": 0.1},
         },
         "model": tune.grid_search(model),
@@ -108,8 +111,8 @@ def main(
             "input_size": tune.sample_from(
                 lambda spec: len(spec.config.data["variables"]) + 1
             ),
-            "hidden_size": tune.choice([64, 128]),
-            "num_layers": tune.choice([1, 2, 3, 4]),
+            "hidden_size": tune.choice([32, 64]),
+            "num_layers": tune.choice([1, 2, 3]),
             "output_size": 1,
         },
         "training": {
@@ -123,22 +126,16 @@ def main(
         metric_columns=["train_loss", "val_loss", "test_loss", "training_iteration"]
     )
 
-    scheduler_asha = ASHAScheduler(
-        max_t=max_num_epochs, grace_period=min_num_epochs, reduction_factor=3
-    )
-
     scheduler_population = PopulationBasedTraining(
         time_attr="training_iteration",
         perturbation_interval=min_num_epochs,
         hyperparam_mutations={
             "weight_decay": tune.uniform(0.0, 0.3),
             "learning_rate": tune.loguniform(1e-5, 1e-1),
-            "model_arch.hidden_size": tune.choice([32, 64, 128]),
-            "model_arch.num_layers": tune.choice([1, 2, 3, 4]),
-            "data.batch_size": tune.choice([128, 256]),
+            "model_arch.hidden_size": tune.choice([32, 64]),
+            "model_arch.num_layers": tune.choice([1, 2, 3]),
         },
     )
-
 
     stop = {
         "training_iteration": max_num_epochs,
@@ -152,7 +149,7 @@ def main(
         resources_per_trial={"cpu": 12, "gpu": 1},
         config=config,
         num_samples=n_samples,
-        #scheduler=scheduler_asha,
+        scheduler=scheduler_population,
         progress_reporter=reporter,
         name=exp_name,
         local_dir=local_dir,
@@ -164,31 +161,31 @@ def main(
         checkpoint_score_attr="val_loss"
 )
 
-
-
 if __name__ == "__main__":
     data_dir = "./data"
     clean_data_dir = os.path.abspath(os.path.join(data_dir, "clean_data"))
     
     model_dict = {
-        "all-lstm": "LSTM",
-        "all-temporal": "LSTMTemporalAttention",
-        "all-spatio_temporal": "LSTMSpatioTemporalAttention",
-        "all-fcn": "FCN"
+        "PBT7-lstm": "LSTM",
+        "PBT7-temp": "LSTMTemporalAttention",
+        "PBT7-spa_temp": "LSTMSpatioTemporalAttention",
+        "PBT7-fcn": "FCN"
     }
-    for exp_name, model in model_dict.items():
-        filename = "cleaned_data_4.csv"
-        # Get the full path of the file
-        file_path = os.path.join(clean_data_dir, filename)
+    for i in range(4):
+        for exp_name, model in model_dict.items():
+            filename = "cleaned_data_4.csv"
+            # Get the full path of the file
+            file_path = os.path.join(clean_data_dir, filename)
 
-        num = filename.split("_")[2].split(".")[0]
-        experiment = f"data_{num}-{exp_name}"
+            num = filename.split("_")[2].split(".")[0]
+            experiment = f"data_{num}-{exp_name}"
 
-        main(
-            [model],
-            exp_name=experiment,
-            file_name=filename,
-            n_samples=10,
-            max_num_epochs=100,
-            min_num_epochs=25,
-        )
+            main(
+                i,
+                [model],
+                exp_name=experiment,
+                file_name=filename,
+                n_samples=25,
+                max_num_epochs=100,
+                min_num_epochs=25,
+            )
