@@ -15,8 +15,8 @@ from plotly.offline import init_notebook_mode, plot, iplot
 import plotly.express as px
 from plotly.subplots import make_subplots
 
-from data import *
-from train import create_model
+from src.data import *
+from src.train import create_model
 
 def mean_absolute_percentage_error(y_true, y_pred):
     y_true, y_pred = np.array(y_true), np.array(y_pred)

@@ -10,11 +10,15 @@ import streamlit as st
 from ray import tune
 from ray.tune.schedulers import ASHAScheduler
 
-# Make sure that the src folder is in the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+# Get the absolute path of the directory containing this script
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
-from data import Data
-from train import train_model
+# Add the root directory (two levels up from current_dir) to the Python path
+root_dir = os.path.join(current_dir, os.pardir)
+sys.path.append(root_dir)
+
+from src.data import Data
+from src.train import train_model
 
 
 def describe_dataframe(dataframe):

@@ -4,7 +4,7 @@ import plotly.express as px
 import streamlit as st
 from pathlib import Path
 
-from evaluate import box_plot, calculate_model_metrics, plot_pred_actual
+from src.evaluate import box_plot, calculate_model_metrics, plot_pred_actual
 
 
 def main():
@@ -44,25 +44,23 @@ if __name__ == "__main__":
             experiment = col1.selectbox("Select experiment:", experiments)
             best = col2.number_input("Number of models", key="num_models", step=1, min_value=1, value=5)
             # Every form must have a submit button.
-            submitted = st.form_submit_button("Submit")
+            submitted = st.form_submit_button("Get Results")
             if submitted:
                 model_dfs, parameters = calculate_model_metrics(model_dirs, experiment, best)
                 
-                # add error checking here
-                dfs_to_concat = [model_dfs[k] for k in model_dfs.keys() if experiment in k]
-                if not dfs_to_concat:
-                    st.error("No models found for this experiment!")
-                else:
-                    # concatenate the dataframes
-                    df_concat_avg_w_var = pd.concat(dfs_to_concat)
+                # concatenate the dataframes
+                df_concat_avg_w_var = pd.concat([model_dfs[k] for k in model_dfs.keys() if experiment in k])
 
-                    # calculate the mean of each evaluation metric
-                    df_avg_w_var = df_concat_avg_w_var.groupby(['model', 'variables']).mean()
-                    model_var_counts = df_concat_avg_w_var.groupby(['model', 'variables']).size().reset_index(name='counts')
-                    df_avg_w_var = df_avg_w_var.reset_index()  # reset index so that 'model' and 'variables' become regular columns
-                    df_avg_w_var = pd.merge(df_avg_w_var, model_var_counts, on=['model', 'variables'])
-                    
-                    st.write(df_avg_w_var.sort_values("test_mae"))
-                    st.plotly_chart(plot_pred_actual(model_dirs, experiment))
+                # calculate the mean of each evaluation metric
+                df_avg_w_var = df_concat_avg_w_var.groupby(['model', 'variables']).mean()
+                model_var_counts = df_concat_avg_w_var.groupby(['model', 'variables']).size().reset_index(name='counts')
+                df_avg_w_var = df_avg_w_var.reset_index()  # reset index so that 'model' and 'variables' become regular columns
+                df_avg_w_var = pd.merge(df_avg_w_var, model_var_counts, on=['model', 'variables'])
+                
+                st.header(f"Best {best} performing models")
+                st.write(df_avg_w_var.sort_values("test_mae"))
+    
+                st.header("Plot of the best performing model")
+                st.plotly_chart(plot_pred_actual(model_dirs, experiment))
     else:
         st.error("Need to train a model first!")

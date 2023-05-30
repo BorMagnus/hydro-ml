@@ -8,8 +8,8 @@ from ray.air import session
 from ray.air.checkpoint import Checkpoint
 from tqdm import tqdm
 
-from data import Data
-from models import *
+from src.data import Data
+from src.models import *
 
 
 def fit(net, loss_function, optimizer, data_loader, num_epochs, mode, use_amp=False):

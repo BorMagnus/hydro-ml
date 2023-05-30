@@ -10,18 +10,8 @@ import streamlit as st
 from ray import tune
 from ray.tune.schedulers import ASHAScheduler
 
-# Get the absolute path of the directory containing this script
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Add the parent directory of the current directory to the Python path
-parent_dir = os.path.join(current_dir, os.pardir)
-sys.path.append(parent_dir)
-
-from data import Data
-
-# Now you can import the `train` module
-from train import train_model
-
+from src.data import Data
+from src.train import train_model
 
 def get_datetime_and_target_variables(dataframe):
     """Get datetime and target variables from dataframe."""
@@ -30,7 +20,7 @@ def get_datetime_and_target_variables(dataframe):
     target_variable_options = list(dataframe.columns)
     target_variable_options.remove(datetime_variable)
 
-    target_variable = st.selectbox("Select target variable:", target_variable_options)
+    target_variable = st.selectbox("Select target variable:", target_variable_options, index=9)
 
     return datetime_variable, target_variable
 

@@ -297,11 +297,12 @@ TSWLatexianTemp*
 # Uncomment the next line to have this generated file ignored.
 #*Notes.bib
 
-# Data files
+#Data
 data/clean_data/*
 data/raw_data/*
 data/transformation_data/*
-data/trained_models/*
+
+
 # Testing files
 model_testing/
 

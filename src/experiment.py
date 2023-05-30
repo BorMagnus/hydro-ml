@@ -1,9 +1,17 @@
 import os
 import random
 from functools import partial
+import sys
 
 from ray import tune
 from ray.tune.schedulers import ASHAScheduler, PopulationBasedTraining
+
+# Get the absolute path of the directory containing this script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Add the root directory (two levels up from current_dir) to the Python path
+root_dir = os.path.join(current_dir, os.pardir)
+sys.path.append(root_dir)
 
 
 from data import Data
