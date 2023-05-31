@@ -71,7 +71,9 @@ class Data:
             os.path.join(self.data_dir, "transformation_data", file_name)
         )
 
-        if False: #os.path.isfile(decomposed_data_path): #TODO: Add way to save scalers
+        if (
+            False
+        ):  # os.path.isfile(decomposed_data_path): #TODO: Add way to save scalers
             lagged_df = self.load_data_from_file(decomposed_data_path)
         else:
             if columns_to_transformation:
@@ -106,7 +108,6 @@ class Data:
         y = lagged_df[f"{target_variable}"]
 
         return X, y, scalers
-
 
     def create_dataloader(self, X, y, sequence_length, batch_size, shuffle):
         """
@@ -170,7 +171,7 @@ class Data:
 
     def get_datetime_values(self, indices):
         return self.data.index[indices]
-    
+
     def inverse_transform_target(self, data, scaler):
         return scaler.inverse_transform(data)
 

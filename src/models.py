@@ -15,7 +15,13 @@ class LSTM(nn.Module):
 
         self.layer_in = nn.Linear(input_size, hidden_size)
         self.dropout = nn.Dropout(0.3)
-        self.lstm = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=self.num_layers,batch_first=True, dropout=0.3 if num_layers > 1 else 0)
+        self.lstm = nn.LSTM(
+            input_size=self.hidden_size,
+            hidden_size=self.hidden_size,
+            num_layers=self.num_layers,
+            batch_first=True,
+            dropout=0.3 if num_layers > 1 else 0,
+        )
 
         self.layer_out = nn.Linear(hidden_size, output_size, bias=False)
 
@@ -39,7 +45,7 @@ class LSTM(nn.Module):
         out = out.squeeze()
 
         return out
-    
+
 
 class TemporalAttention(nn.Module):
     def __init__(self, hidden_size, input_size):
@@ -75,13 +81,21 @@ class LSTMTemporalAttention(nn.Module):
 
         self.layer_in = nn.Linear(input_size, hidden_size)
         self.dropout = nn.Dropout(0.3)
-        self.lstm = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=self.num_layers, batch_first=True, dropout=0.3 if num_layers > 1 else 0)
+        self.lstm = nn.LSTM(
+            input_size=self.hidden_size,
+            hidden_size=self.hidden_size,
+            num_layers=self.num_layers,
+            batch_first=True,
+            dropout=0.3 if num_layers > 1 else 0,
+        )
 
         self.temporal_attention = TemporalAttention(hidden_size, input_size)
 
         self.layer_out = nn.Linear(input_size, output_size, bias=False)
 
-    def forward(self, input, return_weights=False):  # Input shape (batch_size, sequence_length, input_size)
+    def forward(
+        self, input, return_weights=False
+    ):  # Input shape (batch_size, sequence_length, input_size)
         sequence_length = input.shape[1]
 
         x = input.transpose(1, 2)  # Swap sequence_length and input_size dimensions
@@ -94,7 +108,7 @@ class LSTMTemporalAttention(nn.Module):
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         h_t, _ = self.lstm(x, (h0, c0))
-        
+
         if return_weights:
             context_vector, beta_t = self.temporal_attention(h_t, return_weights)
             out = self.layer_out(context_vector)
@@ -121,7 +135,7 @@ class SpatialAttention(nn.Module):
             return x_t * alpha_t, alpha_t
         else:
             return x_t * alpha_t
-        
+
 
 class LSTMSpatioTemporalAttention(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size):
@@ -137,13 +151,21 @@ class LSTMSpatioTemporalAttention(nn.Module):
 
         self.layer_in = nn.Linear(input_size, hidden_size)
         self.dropout = nn.Dropout(0.3)
-        self.lstm = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=self.num_layers,batch_first=True, dropout=0.3 if num_layers > 1 else 0)
+        self.lstm = nn.LSTM(
+            input_size=self.hidden_size,
+            hidden_size=self.hidden_size,
+            num_layers=self.num_layers,
+            batch_first=True,
+            dropout=0.3 if num_layers > 1 else 0,
+        )
 
         self.temporal_attention = TemporalAttention(hidden_size, input_size)
 
         self.layer_out = nn.Linear(input_size, output_size, bias=False)
 
-    def forward(self, input, return_weights=False):  # Input shape (batch_size, sequence_length, input_size)
+    def forward(
+        self, input, return_weights=False
+    ):  # Input shape (batch_size, sequence_length, input_size)
         sequence_length = input.shape[1]
 
         x = input.transpose(1, 2)  # Swap sequence_length and input_size dimensions
@@ -178,7 +200,9 @@ class LSTMSpatioTemporalAttention(nn.Module):
         if return_weights:
             context_vector, beta_t = self.temporal_attention(h_t, return_weights)
             out = self.layer_out(context_vector)
-            alpha_list = torch.stack(alpha_list, dim=1)  # Stack along the sequence_length dimension
+            alpha_list = torch.stack(
+                alpha_list, dim=1
+            )  # Stack along the sequence_length dimension
             return out.squeeze(), alpha_list, beta_t
         else:
             context_vector = self.temporal_attention(h_t)

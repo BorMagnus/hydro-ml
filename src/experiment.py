@@ -14,12 +14,11 @@ root_dir = os.path.join(current_dir, os.pardir)
 sys.path.append(root_dir)
 
 
-from data import Data
-from train import train_model
+from src.data import Data
+from src.train import train_model
 
 
 def get_variables_combinations(file_name, datetime_variable):
-
     d = Data(file_name, datetime_variable)
     variables = d.get_all_variables()
     variables.remove("Flow_Kalltveit")
@@ -39,7 +38,7 @@ def get_variables_combinations(file_name, datetime_variable):
     hbv = []
 
     meteorological_feature_selected = []
-    
+
     for var in variables:
         if "Nilsebu" in var:
             nilsebu.append(var)
@@ -59,7 +58,12 @@ def get_variables_combinations(file_name, datetime_variable):
             viglesdalsvatn.append(var)
         if "HBV" in var:
             hbv.append(var)
-        if "Precipitation" in var or "Wind_Speed" in var or "Wind_Direction" in var or "Relative_Humidity" in var:
+        if (
+            "Precipitation" in var
+            or "Wind_Speed" in var
+            or "Wind_Direction" in var
+            or "Relative_Humidity" in var
+        ):
             meteorological.append(var)
         if "Water" in var:
             hydrological.append(var)
@@ -72,25 +76,26 @@ def get_variables_combinations(file_name, datetime_variable):
         discharge = [var for var in discharge if "HBV" not in var]
 
     all_variables_combinations = [
-#        univariate,
-#        nilsebu,
-#        fister,
-#        kalltveit,
-#        lyngsaana,
-        #nilsebu+fister,
-        #hbv,
+        #        univariate,
+        #        nilsebu,
+        #        fister,
+        #        kalltveit,
+        #        lyngsaana,
+        # nilsebu+fister,
+        # hbv,
         meteorological,
         hydrological,
-        #meteorological + hbv,
-        #hydrological + hbv,
+        # meteorological + hbv,
+        # hydrological + hbv,
         meteorological + hydrological,
         meteorological + hydrological + hbv,
     ]
-    
+
     return all_variables_combinations
 
+
 def main(
-        i,
+    i,
     model,
     exp_name,
     file_name,
@@ -107,7 +112,7 @@ def main(
     config = {
         "data_file": file_name,
         "datetime": datetime_variable,
-        "data": { 
+        "data": {
             "target_variable": target_variable,
             "sequence_length": tune.choice([25]),
             "batch_size": tune.choice([256]),
@@ -127,7 +132,7 @@ def main(
             "learning_rate": tune.loguniform(1e-5, 1e-1),
             "weight_decay": tune.loguniform(1e-5, 1e-1),
         },
-        "num_epochs": max_num_epochs
+        "num_epochs": max_num_epochs,
     }
 
     reporter = tune.CLIReporter(
@@ -154,7 +159,10 @@ def main(
 
     results = tune.run(
         train_model,
-        resources_per_trial={"cpu": 12, "gpu": 1},
+        resources_per_trial={
+            "cpu": 12,
+            "gpu": 1,
+        },  # Need to be changed based on computer specs
         config=config,
         num_samples=n_samples,
         scheduler=scheduler_population,
@@ -164,20 +172,21 @@ def main(
         metric="val_loss",
         mode="min",
         stop=stop,
-        #search_alg=search_alg, # Add the chosen search algorithm
+        # search_alg=search_alg, # Add the chosen search algorithm
         keep_checkpoints_num=1,
-        checkpoint_score_attr="val_loss"
-)
+        checkpoint_score_attr="val_loss",
+    )
+
 
 if __name__ == "__main__":
     data_dir = "./data"
     clean_data_dir = os.path.abspath(os.path.join(data_dir, "clean_data"))
-    
+
     model_dict = {
         "PBT7-lstm": "LSTM",
         "PBT7-temp": "LSTMTemporalAttention",
         "PBT7-spa_temp": "LSTMSpatioTemporalAttention",
-        "PBT7-fcn": "FCN"
+        "PBT7-fcn": "FCN",
     }
     for i in range(4):
         for exp_name, model in model_dict.items():

@@ -13,6 +13,7 @@ from ray.tune.schedulers import ASHAScheduler
 from src.data import Data
 from src.train import train_model
 
+
 def get_datetime_and_target_variables(dataframe):
     """Get datetime and target variables from dataframe."""
     datetime_variable = st.selectbox("Select date variable:", list(dataframe.columns))
@@ -20,7 +21,9 @@ def get_datetime_and_target_variables(dataframe):
     target_variable_options = list(dataframe.columns)
     target_variable_options.remove(datetime_variable)
 
-    target_variable = st.selectbox("Select target variable:", target_variable_options, index=9)
+    target_variable = st.selectbox(
+        "Select target variable:", target_variable_options, index=9
+    )
 
     return datetime_variable, target_variable
 
@@ -188,10 +191,10 @@ def train(config, exp_name, n_samples, min_num_epochs, max_num_epochs):
 
     analysis = tune.run(
         partial(train_model),
-        resources_per_trial={"cpu": 12, "gpu": 1},
+        resources_per_trial={"cpu": 1, "gpu": 0},
         config=config,
         num_samples=n_samples,
-        #scheduler=scheduler_asha,
+        # scheduler=scheduler_asha,
         progress_reporter=reporter,
         name=exp_name,
         local_dir=local_dir,
