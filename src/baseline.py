@@ -1,11 +1,13 @@
+import sys
+import time
+
 import numpy as np
 import pandas as pd
+from pmdarima.arima import auto_arima
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.stattools import adfuller
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from pmdarima.arima import auto_arima
-import time
-import sys
+
 from src.data import Data
 
 

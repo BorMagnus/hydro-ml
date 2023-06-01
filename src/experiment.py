@@ -1,7 +1,7 @@
 import os
 import random
-from functools import partial
 import sys
+from functools import partial
 
 from ray import tune
 from ray.tune.schedulers import ASHAScheduler, PopulationBasedTraining

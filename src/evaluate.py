@@ -1,19 +1,18 @@
 import json
-from pathlib import Path
-from operator import itemgetter
-import time
-import pandas as pd
-import numpy as np
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-
-import sys
 import os
+import sys
+import time
+from operator import itemgetter
+from pathlib import Path
 
+import numpy as np
+import pandas as pd
+import plotly.express as px
 import plotly.graph_objs as go
 import plotly.subplots as sp
-from plotly.offline import init_notebook_mode, plot, iplot
-import plotly.express as px
+from plotly.offline import init_notebook_mode, iplot, plot
 from plotly.subplots import make_subplots
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from src.data import *
 from src.train import create_model
@@ -270,9 +269,10 @@ def median_iqr(df):
     print("\nIQR:\n", IQR)
 
 
-import pandas as pd
 import json
 from operator import itemgetter
+
+import pandas as pd
 
 
 def count_models(model_dirs, experiment):
@@ -393,7 +393,7 @@ def visualize_attention(
 
 def plot_attention(params, spatial_weights=None, temporal_weights=None):
     features = [params["data"]["target_variable"]] + params["data"]["variables"]
-    b = 20
+    b = 0
     # If the attention weights are torch tensors, convert them to numpy arrays first
     if isinstance(spatial_weights, torch.Tensor) and isinstance(
         temporal_weights, torch.Tensor
@@ -413,7 +413,7 @@ def recursive_forecast(model, input, forecast_steps=1, return_weights=False):
     for i in range(forecast_steps):
         if return_weights:
             out, alpha_list, beta_t = model(input, return_weights=True)
-            if i + 1 in {1, 4, 8, 12}:
+            if i + 1 in {1, 12}:
                 attention_weights.append((alpha_list, beta_t))
         else:
             out = model(input)
@@ -431,7 +431,7 @@ def recursive_forecast(model, input, forecast_steps=1, return_weights=False):
 
 
 def get_multi_step_preds_actuals(
-    model, test_loader, forecast_steps=3, return_weights=False
+    model, test_loader, forecast_steps=12, return_weights=False
 ):
     y_preds = []
     y_test = []
@@ -477,79 +477,62 @@ def get_multi_step_preds_actuals(
     else:
         return y_preds, y_test
 
-
-def plot_pred_actual_multi_step(model_dirs, experiment, steps_ahead):
-    fig = go.Figure()
-
+def evaluate_multi_step_models(model_dirs, experiment, steps_ahead, best):
+    model_dfs = {}
     for model_dir in model_dirs:
         if experiment not in str(model_dir):
             continue
 
-        best_checkpoints = find_best_checkpoints(model_dir, num_best=1)
-        for checkpoint, _, params in best_checkpoints:
+        rows = []
+        best_checkpoints = find_best_checkpoints(model_dir, num_best=best)
+        for i, (checkpoint, val_loss, params) in enumerate(best_checkpoints):
+            # Load model and weights
             model = create_model(params)
             model = load_model_from_checkpoint(model, checkpoint)
 
             data_loader, scalers = get_dataloader(params)
             test_loader = data_loader["test"]
 
+            with torch.no_grad():
+                y_preds, y_test = get_multi_step_preds_actuals(
+                    model, test_loader, forecast_steps=steps_ahead
+                )
+
             d = Data(params["data_file"], params["datetime"])
 
-            if model_dir == model_dirs[0]:
-                val_loader = data_loader["val"]
-                y_val = [j for _, j in val_loader]
-                y_val = torch.cat(y_val).detach().cpu().numpy()
-                y_val = d.inverse_transform_target(
-                    np.array(y_val).reshape(-1, 1), scalers["Flow_Kalltveit"]
-                )
-                datetime_val = val_loader.datetime_index
-                val_df = pd.DataFrame(
-                    {"datetime": datetime_val, "target": y_val.flatten()}
-                )
-                fig.add_trace(
-                    go.Scatter(
-                        x=val_df["datetime"],
-                        y=val_df["target"],
-                        mode="lines",
-                        name="Validation",
-                    )
-                )
-
-                y_test = [j for _, j in test_loader]
-                y_test = torch.cat(y_test).detach().cpu().numpy()
-                y_test = d.inverse_transform_target(
-                    np.array(y_test).reshape(-1, 1), scalers["Flow_Kalltveit"]
-                )
-                datetime_test = test_loader.datetime_index
-                test_df = pd.DataFrame(
-                    {"datetime": datetime_test, "target": y_test.flatten()}
-                )
-                fig.add_trace(
-                    go.Scatter(
-                        x=test_df["datetime"],
-                        y=test_df["target"],
-                        mode="lines",
-                        name="Test",
-                    )
-                )
-
-            fig = plot_pred_actual(
-                fig,
-                data_loader,
-                scalers,
-                model,
-                params["model"],
-                forecast_steps=steps_ahead,
+            y_preds = d.inverse_transform_target(
+                np.array(y_preds).reshape(-1, 1), scalers["Flow_Kalltveit"]
+            )
+            y_test = d.inverse_transform_target(
+                np.array(y_test).reshape(-1, 1), scalers["Flow_Kalltveit"]
             )
 
-    fig.update_layout(
-        title=f"Time Series Data with Multiple Models Predictions",
-        xaxis_title="Datetime",
-        yaxis_title="Target Value",
-    )
-    fig.show()
-    return fig
+            # Calculate the Mean Absolute Error (MAE)
+            mae = mean_absolute_error(y_test, y_preds)
+            # Calculate the Root Mean Squared Error (RMSE)
+            rmse = np.sqrt(mean_squared_error(y_test, y_preds))
+            # Calculate the Mean Absolute Percentage Error (MAPE)
+            mape = mean_absolute_percentage_error(y_test, y_preds)
+            # Calculate the Determination Coefficient (R^2)
+            r2 = r2_score(y_test, y_preds)
 
+            variables_category = categorize_features(params)
+
+            rows.append(
+                {
+                    "model": params["model"],
+                    "val_mae": val_loss,
+                    "test_mae": mae,
+                    "rmse": rmse,
+                    "mape": mape,
+                    "r2": r2,
+                    "variables": variables_category,
+                }
+            )
+        df = pd.DataFrame(rows)
+        model_dfs[model_dir.name] = df
+
+    return model_dfs
 
 def plot_pred_actual(model_dirs, experiment):
     fig = go.Figure()
@@ -654,61 +637,23 @@ def plot_pred_actual(model_dirs, experiment):
     # Show the plot
     return fig
 
+def average_with_var(df_dict, experiment):
 
-def evaluate_multi_step_models(model_dirs, experiment, steps_ahead, best):
-    model_dfs = {}
-    for model_dir in model_dirs:
-        if experiment not in str(model_dir):
-            continue
+    # concatenate the dataframes
+    df_concat_avg_w_var = pd.concat(
+        [df_dict[k] for k in df_dict.keys() if experiment in k]
+    )
 
-        rows = []
-        best_checkpoints = find_best_checkpoints(model_dir, num_best=best)
-        for i, (checkpoint, val_loss, params) in enumerate(best_checkpoints):
-            # Load model and weights
-            model = create_model(params)
-            model = load_model_from_checkpoint(model, checkpoint)
+    # calculate the mean of each evaluation metric
+    df_avg_w_var = df_concat_avg_w_var.groupby(["model", "variables"]).mean()
 
-            data_loader, scalers = get_dataloader(params)
-            test_loader = data_loader["test"]
+    model_var_counts = (
+        df_concat_avg_w_var.groupby(["model", "variables"])
+        .size()
+        .reset_index(name="counts")
+    )
+    
+    df_avg_w_var = df_avg_w_var.reset_index()
+    df_avg_w_var = pd.merge(df_avg_w_var, model_var_counts, on=["model", "variables"])
 
-            with torch.no_grad():
-                y_preds, y_test = get_multi_step_preds_actuals(
-                    model, test_loader, forecast_steps=steps_ahead
-                )
-
-            d = Data(params["data_file"], params["datetime"])
-
-            y_preds = d.inverse_transform_target(
-                np.array(y_preds).reshape(-1, 1), scalers["Flow_Kalltveit"]
-            )
-            y_test = d.inverse_transform_target(
-                np.array(y_test).reshape(-1, 1), scalers["Flow_Kalltveit"]
-            )
-
-            # Calculate the Mean Absolute Error (MAE)
-            mae = mean_absolute_error(y_test, y_preds)
-            # Calculate the Root Mean Squared Error (RMSE)
-            rmse = np.sqrt(mean_squared_error(y_test, y_preds))
-            # Calculate the Mean Absolute Percentage Error (MAPE)
-            mape = mean_absolute_percentage_error(y_test, y_preds)
-            # Calculate the Determination Coefficient (R^2)
-            r2 = r2_score(y_test, y_preds)
-
-            model_variables = params["data"]["variables"]
-            variables_category = categorize_features(model_variables)
-
-            rows.append(
-                {
-                    "model": params["model"],
-                    "val_mae": val_loss,
-                    "test_mae": mae,
-                    "rmse": rmse,
-                    "mape": mape,
-                    "r2": r2,
-                    "variables": variables_category,
-                }
-            )
-        df = pd.DataFrame(rows)
-        model_dfs[model_dir.name] = df
-
-    return model_dfs
+    return df_avg_w_var.sort_values("test_mae")

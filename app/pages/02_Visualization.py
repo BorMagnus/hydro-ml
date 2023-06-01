@@ -1,8 +1,9 @@
 import os
+from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from pathlib import Path
 
 from src.evaluate import box_plot, calculate_model_metrics, plot_pred_actual
 
